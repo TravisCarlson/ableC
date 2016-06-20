@@ -29,22 +29,45 @@ concrete productions top::YaccProductionList_c
 nonterminal YaccProduction_c with ast<abs:YaccProduction>, location;
 
 concrete production yaccProduction_c
-top::YaccProduction_c ::= cnc:Identifier_t ':' YaccSymbolList_c ';'
+top::YaccProduction_c ::= cnc:Identifier_t ':' YaccSymbolOrActionList_c ';'
 {
   top.ast = abs:yaccProduction();
 }
 
-nonterminal YaccSymbolList_c with ast<abs:YaccSymbolList>, location;
+nonterminal YaccSymbolOrActionList_c with ast<abs:YaccSymbolOrActionList>, location;
 
-concrete productions top::YaccSymbolList_c
-| id::cnc:Identifier_t ids::YaccSymbolList_c
+concrete productions top::YaccSymbolOrActionList_c
+| sa::YaccSymbolOrAction_c sas::YaccSymbolOrActionList_c
     {
-      top.ast = abs:yaccSymbolList(id, ids.ast);
+      top.ast = abs:yaccSymbolOrActionList();
     }
 |
     {
-      top.ast = abs:yaccNilSymbolList();
+      top.ast = abs:yaccNilSymbolOrActionList();
     }
+
+nonterminal YaccSymbolOrAction_c with ast<abs:YaccSymbolOrAction>, location;
+concrete productions top::YaccSymbolOrAction_c
+| cnc:Identifier_t
+    {
+      top.ast = abs:yaccSymbol();
+    }
+| '{' sa::YaccSemanticAction_c '}'
+    {
+      top.ast = sa.ast;
+    }
+
+nonterminal YaccSemanticAction_c with ast<abs:YaccSymbolOrAction>, location;
+concrete productions top::YaccSemanticAction_c
+| s::cnc:Stmt_c
+  {
+    top.ast = abs:yaccSemanticAction(s.ast);
+  }
+|
+  {
+    top.ast = abs:yaccNilSemanticAction();
+  }
+
 
 ----marking terminal YaccDefinition_t '%';
 --marking terminal YaccDefinition_t 'EXPR' lexer classes {Ckeyword};

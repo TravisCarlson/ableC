@@ -4,14 +4,11 @@
 
 /* ==== Grammar Section ==== */
 
-program     : expr
-            ;
-
 /* Productions */               /* Semantic actions */
-/*
 program     : expr                  { result = $1; }
             ;
 
+/*
 expr        : expr OP_PLUS expr     { $$ = $1 + $3; }
             | expr OP_MINUS expr    { $$ = $1 - $3; }
             | expr OP_TIMES expr    { $$ = $1 * $3; }

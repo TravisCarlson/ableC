@@ -31,19 +31,33 @@ top::YaccProduction ::=
 {
 }
 
-nonterminal YaccSymbolList with ids;
-synthesized attribute ids :: [cnc:Identifier_t];
+nonterminal YaccSymbolOrActionList;
 
-abstract production yaccSymbolList
-top::YaccSymbolList ::= id::cnc:Identifier_t ids::YaccSymbolList
+abstract production yaccSymbolOrActionList
+top::YaccSymbolOrActionList ::=
 {
-  top.ids = cons(id, ids.ids);
 }
 
-abstract production yaccNilSymbolList
-top::YaccSymbolList ::=
+abstract production yaccNilSymbolOrActionList
+top::YaccSymbolOrActionList ::=
 {
-  top.ids = nil();
+}
+
+nonterminal YaccSymbolOrAction;
+
+abstract production yaccSymbol
+top::YaccSymbolOrAction ::=
+{
+}
+
+abstract production yaccSemanticAction
+top::YaccSymbolOrAction ::= s::abs:Stmt
+{
+}
+
+abstract production yaccNilSemanticAction
+top::YaccSymbolOrAction ::=
+{
 }
 
 --abstract production yaccDefinitionSection
