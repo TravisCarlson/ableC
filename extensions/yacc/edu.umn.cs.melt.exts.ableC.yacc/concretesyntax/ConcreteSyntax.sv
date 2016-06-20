@@ -29,9 +29,29 @@ concrete productions top::YaccProductionList_c
 nonterminal YaccProduction_c with ast<abs:YaccProduction>, location;
 
 concrete production yaccProduction_c
-top::YaccProduction_c ::= cnc:Identifier_t ':' YaccSymbolOrActionList_c ';'
+top::YaccProduction_c ::= cnc:Identifier_t ':' YaccProductionAlternativeList_c ';'
 {
   top.ast = abs:yaccProduction();
+}
+
+nonterminal YaccProductionAlternativeList_c with ast<abs:YaccProductionAlternativeList>, location;
+
+concrete productions top::YaccProductionAlternativeList_c
+| pa::YaccProductionAlternative_c '|' pas::YaccProductionAlternativeList_c
+    {
+      top.ast = abs:yaccProductionAlternativeList(pa.ast, pas.ast);
+    }
+| YaccProductionAlternative_c
+    {
+      top.ast = abs:yaccNilProductionAlternativeList();
+    }
+
+nonterminal YaccProductionAlternative_c with ast<abs:YaccProductionAlternative>, location;
+
+concrete production yaccProductionAlternative_c
+top::YaccProductionAlternative_c ::= YaccSymbolOrActionList_c
+{
+  top.ast = abs:yaccProductionAlternative();
 }
 
 nonterminal YaccSymbolOrActionList_c with ast<abs:YaccSymbolOrActionList>, location;

@@ -31,6 +31,28 @@ top::YaccProduction ::=
 {
 }
 
+nonterminal YaccProductionAlternativeList with prodAlts;
+synthesized attribute prodAlts :: [YaccProductionAlternative];
+
+abstract production yaccProductionAlternativeList
+top::YaccProductionAlternativeList ::= pa::YaccProductionAlternative pas::YaccProductionAlternativeList
+{
+  top.prodAlts = cons(pa, pas.prodAlts);
+}
+
+abstract production yaccNilProductionAlternativeList
+top::YaccProductionAlternativeList ::=
+{
+  top.prodAlts = nil();
+}
+
+nonterminal YaccProductionAlternative;
+
+abstract production yaccProductionAlternative
+top::YaccProductionAlternative ::=
+{
+}
+
 nonterminal YaccSymbolOrActionList;
 
 abstract production yaccSymbolOrActionList
