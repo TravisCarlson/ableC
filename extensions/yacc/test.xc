@@ -5,6 +5,7 @@
 /* ==== Grammar Section ==== */
 
 program     : expr
+            ;
 
 /* Productions */               /* Semantic actions */
 /*

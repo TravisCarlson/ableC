@@ -29,10 +29,22 @@ concrete productions top::YaccProductionList_c
 nonterminal YaccProduction_c with ast<abs:YaccProduction>, location;
 
 concrete production yaccProduction_c
-top::YaccProduction_c ::= cnc:Identifier_t ':' cnc:Identifier_t
+top::YaccProduction_c ::= cnc:Identifier_t ':' YaccSymbolList_c ';'
 {
   top.ast = abs:yaccProduction();
 }
+
+nonterminal YaccSymbolList_c with ast<abs:YaccSymbolList>, location;
+
+concrete productions top::YaccSymbolList_c
+| id::cnc:Identifier_t ids::YaccSymbolList_c
+    {
+      top.ast = abs:yaccSymbolList(id, ids.ast);
+    }
+|
+    {
+      top.ast = abs:yaccNilSymbolList();
+    }
 
 ----marking terminal YaccDefinition_t '%';
 --marking terminal YaccDefinition_t 'EXPR' lexer classes {Ckeyword};
