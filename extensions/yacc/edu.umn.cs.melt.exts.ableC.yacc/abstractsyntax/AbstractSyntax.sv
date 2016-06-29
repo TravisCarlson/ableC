@@ -9,6 +9,49 @@ top::abs:Decl ::= YaccProductionList
   forwards to abs:decls(abs:nilDecl());
 }
 
+nonterminal YaccDeclList with decls;
+synthesized attribute decls :: [YaccDecl];
+
+abstract production yaccDeclList
+top::YaccDeclList ::= p::YaccDecl ps::YaccDeclList
+{
+  top.decls = cons(p, ps.decls);
+}
+
+abstract production yaccNilDeclList
+top::YaccDeclList ::=
+{
+  top.decls = nil();
+}
+
+nonterminal YaccDecl;
+
+abstract production yaccDecl
+top::YaccDecl ::=
+{
+}
+
+nonterminal YaccNameList with names;
+synthesized attribute names :: [abs:Name];
+
+abstract production yaccNameList
+top::YaccNameList ::= n::abs:Name ns::YaccNameList
+{
+  top.names = cons(n, ns.names);
+}
+
+abstract production yaccNilNameList
+top::YaccNameList ::=
+{
+  top.names = nil();
+}
+
+function fromId
+abs:Name ::= n::cnc:Identifier_t
+{
+  return abs:name(n.lexeme, location=n.location);
+}
+
 nonterminal YaccProductionList with prods;
 synthesized attribute prods :: [YaccProduction];
 

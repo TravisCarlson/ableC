@@ -7,17 +7,60 @@ imports edu:umn:cs:melt:exts:ableC:yacc:abstractsyntax as abs;
 import silver:langutil;
 
 marking terminal YaccGrammar_t '%%' lexer classes {Ckeyword};
+marking terminal YaccToken_t '%token' lexer classes {Ckeyword};
+marking terminal YaccStart_t '%start' lexer classes {Ckeyword};
+marking terminal YaccLeft_t '%left' lexer classes {Ckeyword};
 
 concrete production yaccGrammar_c
-top::cnc:Declaration_c ::= YaccGrammar_t p::YaccProductionList_c YaccGrammar_t
+top::cnc:Declaration_c ::= YaccDeclList_c YaccGrammar_t p::YaccProductionList_c YaccGrammar_t
 {
   top.ast = abs:yaccGrammar(p.ast);
 }
 
+nonterminal YaccDeclList_c with ast<abs:YaccDeclList>, location;
+
+concrete productions top::YaccDeclList_c
+| ps::YaccDeclList_c p::YaccDecl_c
+    {
+      top.ast = abs:yaccDeclList(p.ast, ps.ast);
+    }
+|
+    {
+      top.ast = abs:yaccNilDeclList();
+    }
+
+nonterminal YaccDecl_c with ast<abs:YaccDecl>, location;
+
+concrete productions top::YaccDecl_c
+| YaccToken_t cnc:Identifier_t
+  {
+    top.ast = abs:yaccDecl();
+  }
+| YaccStart_t cnc:Identifier_t
+  {
+    top.ast = abs:yaccDecl();
+  }
+| YaccLeft_t YaccIdentifierList_c
+  {
+    top.ast = abs:yaccDecl();
+  }
+
+nonterminal YaccIdentifierList_c with ast<abs:YaccNameList>, location;
+
+concrete productions top::YaccIdentifierList_c
+| is::YaccIdentifierList_c i::cnc:Identifier_t
+  {
+    top.ast = abs:yaccNameList(abs:fromId(i), is.ast);
+  }
+| i::cnc:Identifier_t
+  {
+    top.ast = abs:yaccNameList(abs:fromId(i), abs:yaccNilNameList());
+  }
+
 nonterminal YaccProductionList_c with ast<abs:YaccProductionList>, location;
 
 concrete productions top::YaccProductionList_c
-| p::YaccProduction_c ps::YaccProductionList_c
+| ps::YaccProductionList_c p::YaccProduction_c
     {
       top.ast = abs:yaccProductionList(p.ast, ps.ast);
     }
@@ -37,7 +80,7 @@ top::YaccProduction_c ::= cnc:Identifier_t ':' YaccProductionAlternativeList_c '
 nonterminal YaccProductionAlternativeList_c with ast<abs:YaccProductionAlternativeList>, location;
 
 concrete productions top::YaccProductionAlternativeList_c
-| pa::YaccProductionAlternative_c '|' pas::YaccProductionAlternativeList_c
+| pas::YaccProductionAlternativeList_c '|' pa::YaccProductionAlternative_c
     {
       top.ast = abs:yaccProductionAlternativeList(pa.ast, pas.ast);
     }
@@ -57,7 +100,7 @@ top::YaccProductionAlternative_c ::= YaccSymbolOrActionList_c
 nonterminal YaccSymbolOrActionList_c with ast<abs:YaccSymbolOrActionList>, location;
 
 concrete productions top::YaccSymbolOrActionList_c
-| sa::YaccSymbolOrAction_c sas::YaccSymbolOrActionList_c
+| sas::YaccSymbolOrActionList_c sa::YaccSymbolOrAction_c
     {
       top.ast = abs:yaccSymbolOrActionList();
     }
