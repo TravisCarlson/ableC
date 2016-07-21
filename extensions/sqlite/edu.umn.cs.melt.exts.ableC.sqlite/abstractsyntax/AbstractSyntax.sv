@@ -13,35 +13,7 @@ top::abs:Expr ::= db::abs:Name query::String
   sqlite3_prepare(${db}, _query, sizeof(query), &_stmt, NULL);
 -}
 
-  local q :: abs:Name = abs:name("_query", location=top.location);
   local stmt :: abs:Name = abs:name("_stmt", location=top.location);
-
-  -- const char *_query = ${query};
-  local queryStrDecl :: abs:Stmt =
-    abs:declStmt(
-      abs:variableDecls(
-        [],
-        [],
-        abs:directTypeExpr(
-          abs:pointerType(
-            [],
-            abs:builtinType([abs:constQualifier()], abs:signedType(abs:charType()))
-          )
-        ),
-        abs:foldDeclarator([
-          abs:declarator(
-            q,
-            abs:baseTypeExpr(),
-            [],
-            abs:justInitializer(
-              abs:exprInitializer(
-                abs:stringLiteral(query, location=top.location)
-              )
-            )
-          )
-        ])
-      )
-    );
 
   -- sqlite3_stmt *_stmt;
   local stmtDecl :: abs:Stmt =
@@ -73,9 +45,14 @@ top::abs:Expr ::= db::abs:Name query::String
       abs:name("sqlite3_prepare", location=top.location),
       abs:foldExpr([
         abs:declRefExpr(db, location=top.location),
-        abs:declRefExpr(q, location=top.location),
+        abs:stringLiteral(query, location=top.location),
         abs:realConstant(
-          abs:integerConstant(toString(length(query)), false, abs:noIntSuffix(), location=top.location),
+          abs:integerConstant(
+            toString(length(query)-2),
+            false,
+            abs:noIntSuffix(),
+            location=top.location
+          ),
           location=top.location
         ),
         abs:unaryOpExpr(
@@ -95,7 +72,6 @@ top::abs:Expr ::= db::abs:Name query::String
   local fullExpr :: abs:Expr =
     abs:stmtExpr(
       abs:foldStmt([
-        queryStrDecl,
         stmtDecl,
         abs:exprStmt(callPrepare)
       ]),
@@ -106,25 +82,6 @@ top::abs:Expr ::= db::abs:Name query::String
       ),
       location=top.location
     );
-
---    abs:basicVarDeclStmt(
---      abs:arrayType(
---      abs:name("query2", location=top.location)),
---      abs:stringLiteral(query, location=top.location),
---      location=top.location
---    );
---
---  -- query = ${query};
---  local queryStrInit :: abs:Expr =
---    abs:binaryOpExpr(
---      abs:declRefExpr(abs:name("query2", location=top.location), location=top.location),
---      abs:assignOp(abs:eqOp(location=top.location), location=top.location),
---      abs:stringLiteral(query, location=top.location),
---      location=top.location
---    );
-
---  forwards to abs:declRefExpr(db, location=top.location);
---  forwards to queryStrDecl;
   forwards to fullExpr;
 }
 
