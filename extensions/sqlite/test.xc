@@ -12,16 +12,16 @@ int main(void)
     return EXIT_FAILURE;
   }
 
-//  sqlite3_stmt *stmt = on db1 query {
-//    select * from tbl1
-//  };
-  const char query[] = "select * from tbl1";
-  sqlite3_stmt *stmt;
-  status = sqlite3_prepare(db, query, sizeof(query), &stmt, NULL);
-  if (status != SQLITE_OK) {
-    fprintf(stderr, "could not run query `%s'\n", query);
-    return EXIT_FAILURE;
-  }
+  sqlite3_stmt *stmt = on db query {
+    "select * from tbl1"
+  };
+//  const char query[] = "select * from tbl1";
+//  sqlite3_stmt *stmt;
+//  status = sqlite3_prepare(db, query, sizeof(query), &stmt, NULL);
+//  if (status != SQLITE_OK) {
+//    fprintf(stderr, "could not run query `%s'\n", query);
+//    return EXIT_FAILURE;
+//  }
 
   while (sqlite3_step(stmt) == SQLITE_ROW) {
     const unsigned char *one = sqlite3_value_text(sqlite3_column_value(stmt, 0));
@@ -31,7 +31,7 @@ int main(void)
 
   status = sqlite3_finalize(stmt);
   if (status != SQLITE_OK) {
-    fprintf(stderr, "could not finalize statement `%s'\n", query);
+    fprintf(stderr, "could not finalize statement\n",);
     return EXIT_FAILURE;
   }
 
