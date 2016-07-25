@@ -62,7 +62,7 @@ int main(void)
                                     two INTEGER ];
 
   sqlite3_stmt *results = on db query {
-    "select * from tbl1"
+    SELECT one, two FROM tbl1
   };
 
   on db for (row : results) {

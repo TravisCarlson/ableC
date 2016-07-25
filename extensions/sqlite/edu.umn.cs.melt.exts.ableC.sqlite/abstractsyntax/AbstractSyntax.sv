@@ -66,6 +66,18 @@ top::SqliteColumnType ::=
 {
 }
 
+nonterminal SqliteQuery with table, pp;
+synthesized attribute table :: String;
+synthesized attribute pp :: String;
+
+abstract production sqliteQuery
+top::SqliteQuery ::=
+{
+  local tbl :: String = "tbl1";
+  top.table = tbl;
+  top.pp = "SELECT * from " ++ tbl;
+}
+
 abstract production sqliteUse
 top::abs:Expr ::= dbname::String
 {
@@ -152,8 +164,8 @@ top::abs:Expr ::= db::abs:Name
     forwards to callClose;
 }
 
-abstract production sqliteQuery
-top::abs:Expr ::= db::abs:Name query::String
+abstract production sqliteQueryDb
+top::abs:Expr ::= db::abs:Name query::SqliteQuery
 {
   {-- want to forward to:
     const char *_query = ${query};
@@ -193,10 +205,10 @@ top::abs:Expr ::= db::abs:Name query::String
       abs:name("sqlite3_prepare", location=top.location),
       abs:foldExpr([
         abs:declRefExpr(db, location=top.location),
-        abs:stringLiteral(query, location=top.location),
+        abs:stringLiteral(quote(query.pp), location=top.location),
         abs:realConstant(
           abs:integerConstant(
-            toString(length(query)-2),
+            toString(length(query.pp)),
             false,
             abs:noIntSuffix(),
             location=top.location
@@ -302,4 +314,10 @@ top::Location ::=
   forwards to loc("Built In", 0, 0, 0, 0, 0, 0);
 }
 
+
+function quote
+String ::= s::String
+{
+  return "\"" ++ s ++ "\"";
+}
 
