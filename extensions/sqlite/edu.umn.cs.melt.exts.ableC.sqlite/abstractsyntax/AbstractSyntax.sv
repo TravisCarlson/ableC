@@ -66,16 +66,13 @@ top::SqliteColumnType ::=
 {
 }
 
-nonterminal SqliteQuery with table, pp;
-synthesized attribute table :: String;
+nonterminal SqliteQuery with pp;
 synthesized attribute pp :: String;
 
 abstract production sqliteQuery
-top::SqliteQuery ::=
+top::SqliteQuery ::= query::String
 {
-  local tbl :: String = "tbl1";
-  top.table = tbl;
-  top.pp = "SELECT * from " ++ tbl;
+  top.pp = query;
 }
 
 abstract production sqliteUse
