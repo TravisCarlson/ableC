@@ -4,6 +4,8 @@ imports edu:umn:cs:melt:ableC:concretesyntax as cnc;
 imports edu:umn:cs:melt:exts:ableC:sqlite:abstractsyntax as abs;
 import silver:langutil;
 
+-- see https://www.sqlite.org/lang.html for grammar of SQLite queries
+
 lexer class SqliteKeyword dominates cnc:Identifier_t;
 
 terminal SqliteWith_t 'WITH' lexer classes {SqliteKeyword};
@@ -76,21 +78,19 @@ terminal SqliteUnaryPlus_t '+' precedence = 26;
 terminal SqliteUnaryCollate_t '~' precedence = 26;
 terminal SqliteNot_t 'NOT' precedence = 26, lexer classes {SqliteKeyword};
 
--- see https://www.sqlite.org/lang.html for grammar of SQLite queries
-nonterminal SqliteQuery_c with location, ast<abs:SqliteQuery>;
+nonterminal SqliteQuery_c with location, pp;
 concrete productions top::SqliteQuery_c
 | s::SqliteSelectStmt_c
   {
-    top.ast = s.ast;
+    top.pp = s.pp;
   }
 
 -- TODO: implement the full Select statement, this only supports Simple Select
-nonterminal SqliteSelectStmt_c with location, ast<abs:SqliteQuery>, pp;
+nonterminal SqliteSelectStmt_c with location, pp;
 concrete productions top::SqliteSelectStmt_c
 | w::SqliteOptWith_c s::SqliteSelectCore_c o::SqliteOptOrder_c l::SqliteOptLimit_c
   {
     top.pp = w.pp ++ s.pp ++ o.pp ++ l.pp;
-    top.ast = abs:sqliteQuery(top.pp);
   }
 
 nonterminal SqliteOptWith_c with location, pp;

@@ -66,15 +66,6 @@ top::SqliteColumnType ::=
 {
 }
 
-nonterminal SqliteQuery with pp;
-synthesized attribute pp :: String;
-
-abstract production sqliteQuery
-top::SqliteQuery ::= query::String
-{
-  top.pp = query;
-}
-
 abstract production sqliteUse
 top::abs:Expr ::= dbname::String
 {
@@ -162,7 +153,7 @@ top::abs:Expr ::= db::abs:Name
 }
 
 abstract production sqliteQueryDb
-top::abs:Expr ::= db::abs:Name query::SqliteQuery
+top::abs:Expr ::= db::abs:Name query::String
 {
   {-- want to forward to:
     const char *_query = ${query};
@@ -202,10 +193,10 @@ top::abs:Expr ::= db::abs:Name query::SqliteQuery
       abs:name("sqlite3_prepare", location=top.location),
       abs:foldExpr([
         abs:declRefExpr(db, location=top.location),
-        abs:stringLiteral(quote(query.pp), location=top.location),
+        abs:stringLiteral(quote(query), location=top.location),
         abs:realConstant(
           abs:integerConstant(
-            toString(length(query.pp)),
+            toString(length(query)),
             false,
             abs:noIntSuffix(),
             location=top.location
