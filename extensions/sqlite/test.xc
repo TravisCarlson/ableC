@@ -58,8 +58,8 @@ int main(void)
 //  on db exit;
 
   sqlite3 *db = use "test.db"
-                  with table tbl1 [ one VARCHAR,
-                                    two INTEGER ];
+                  with table tbl1 ( one VARCHAR,
+                                    two INTEGER );
 
   sqlite3_stmt *results = on db query {
     SELECT one, two FROM tbl1

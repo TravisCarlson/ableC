@@ -30,7 +30,7 @@ concrete productions top::SqliteTableList_c
 
 nonterminal SqliteTable_c with ast<abs:SqliteTable>, location;
 concrete productions top::SqliteTable_c
-| SqliteWith_t SqliteTable_t n::cnc:Identifier_t '[' cs::SqliteColumnDeclList_c ']'
+| SqliteWith_t SqliteTable_t n::cnc:Identifier_t '(' cs::SqliteColumnDeclList_c ')'
   {
     top.ast = abs:sqliteTable(abs:fromId(n), cs.ast);
   }
