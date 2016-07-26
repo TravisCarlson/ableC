@@ -1,138 +1,8 @@
-grammar edu:umn:cs:melt:exts:ableC:sqlite:abstractsyntax;
+grammar edu:umn:cs:melt:exts:ableC:sqlite:abstractsyntax:sqliteOn;
 
 imports edu:umn:cs:melt:ableC:abstractsyntax as abs;
 imports edu:umn:cs:melt:ableC:abstractsyntax:construction as abs;
 imports edu:umn:cs:melt:ableC:concretesyntax as cnc;
-
-nonterminal SqliteTableList with tables;
-synthesized attribute tables :: [SqliteTable];
-
-abstract production sqliteTableList
-top::SqliteTableList ::= t::SqliteTable ts::SqliteTableList
-{
-  top.tables = cons(t, ts.tables);
-}
-
-abstract production sqliteNilTableList
-top::SqliteTableList ::=
-{
-  top.tables = nil();
-}
-
-nonterminal SqliteTable with name, columnDecls;
-synthesized attribute name :: abs:Name;
-synthesized attribute columnDecls :: [SqliteColumnDecl];
-
-abstract production sqliteTable
-top::SqliteTable ::= n::abs:Name cs::SqliteColumnDeclList
-{
-  top.name = n;
-  top.columnDecls = cs.columnDecls;
-}
-
-nonterminal SqliteColumnDeclList with columnDecls;
-
-abstract production sqliteColumnDeclList
-top::SqliteColumnDeclList ::= c::SqliteColumnDecl cs::SqliteColumnDeclList
-{
-  top.columnDecls = cons(c, cs.columnDecls);
-}
-
-abstract production sqliteNilColumnDeclList
-top::SqliteColumnDeclList ::=
-{
-  top.columnDecls = nil();
-}
-
-nonterminal SqliteColumnDecl with name, typ;
-synthesized attribute typ :: SqliteColumnType;
-
-abstract production sqliteColumnDecl
-top::SqliteColumnDecl ::= n::abs:Name t::SqliteColumnType
-{
-  top.name = n;
-  top.typ = t;
-}
-
-nonterminal SqliteColumnType;
-
-abstract production sqliteVarchar
-top::SqliteColumnType ::=
-{
-}
-
-abstract production sqliteInteger
-top::SqliteColumnType ::=
-{
-}
-
-abstract production sqliteUse
-top::abs:Expr ::= dbname::String
-{
---  top.typerep = sqliteDbType();
-
-  {-- want to forward to:
-    sqlite3 *_db;
-    sqlite3_open(${dbname}, &_db);
-  -}
-
-  local db :: abs:Name = abs:name("_db", location=top.location);
-
-  -- sqlite3 *_db;
-  local dbDecl :: abs:Stmt =
-    abs:declStmt(
-      abs:variableDecls(
-        [],
-        [],
-        abs:typedefTypeExpr(
-          [],
-          abs:name("sqlite3", location=top.location)
-        ),
-        abs:foldDeclarator([
-          abs:declarator(
-            db,
-            abs:pointerTypeExpr(
-              [],
-              abs:baseTypeExpr()
-            ),
-            [],
-            abs:nothingInitializer()
-          )
-        ])
-      )
-    );
-
-  -- sqlite3_open(${dbname}, &_db);
-  local callOpen :: abs:Expr =
-    abs:directCallExpr(
-      abs:name("sqlite3_open", location=top.location),
-      abs:foldExpr([
-        abs:stringLiteral(dbname, location=top.location),
-        abs:unaryOpExpr(
-          abs:addressOfOp(location=top.location),
-          abs:declRefExpr(db, location=top.location),
-          location=top.location
-        )
-      ]),
-      location=top.location
-    );
-
-  local fullExpr :: abs:Expr =
-    abs:stmtExpr(
-      abs:foldStmt([
-        dbDecl,
-        abs:exprStmt(callOpen)
-      ]),
-
-      abs:declRefExpr(
-        db,
-        location=top.location
-      ),
-      location=top.location
-    );
-
-  forwards to fullExpr;
-}
 
 abstract production sqliteExit
 top::abs:Expr ::= db::abs:Name
@@ -290,21 +160,11 @@ top::abs:Stmt ::= row::abs:Name stmt::abs:Name body::abs:Stmt
   forwards to whileHasRow;
 }
 
-abstract production sqliteDbTypeExpr
-top::abs:BaseTypeExpr ::=
+-- New location for expressions which don't have real locations
+abstract production builtIn
+top::Location ::=
 {
---  top.typerep = sqliteDbType();
-  forwards to
-        abs:typedefTypeExpr(
-          [],
-          abs:name("sqlite3", location=builtIn())
-        );
-}
-
-abstract production sqliteDbType
-top::abs:Type ::=
-{
-  forwards to abs:builtinType([], abs:boolType());
+  forwards to loc("Built In", 0, 0, 0, 0, 0, 0);
 }
 
 -- TODO: can this be used from ableC:abstractsyntax instead of copied?
@@ -313,14 +173,6 @@ abs:Name ::= n::cnc:Identifier_t
 {
   return abs:name(n.lexeme, location=n.location);
 }
-
--- New location for expressions which don't have real locations
-abstract production builtIn
-top::Location ::=
-{
-  forwards to loc("Built In", 0, 0, 0, 0, 0, 0);
-}
-
 
 function quote
 String ::= s::String
