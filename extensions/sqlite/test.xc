@@ -57,7 +57,7 @@ int main(void)
 //
 //  on db exit;
 
-  sqlite3 *db = use "test.db"
+  SqliteDb *db = use "test.db"
                   with table tbl1 ( one VARCHAR,
                                     two INTEGER );
 

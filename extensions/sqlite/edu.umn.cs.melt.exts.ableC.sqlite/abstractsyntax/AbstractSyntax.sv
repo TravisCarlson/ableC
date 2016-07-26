@@ -69,6 +69,8 @@ top::SqliteColumnType ::=
 abstract production sqliteUse
 top::abs:Expr ::= dbname::String
 {
+--  top.typerep = sqliteDbType();
+
   {-- want to forward to:
     sqlite3 *_db;
     sqlite3_open(${dbname}, &_db);
@@ -286,6 +288,23 @@ top::abs:Stmt ::= row::abs:Name stmt::abs:Name body::abs:Stmt
     );
 
   forwards to whileHasRow;
+}
+
+abstract production sqliteDbTypeExpr
+top::abs:BaseTypeExpr ::=
+{
+--  top.typerep = sqliteDbType();
+  forwards to
+        abs:typedefTypeExpr(
+          [],
+          abs:name("sqlite3", location=builtIn())
+        );
+}
+
+abstract production sqliteDbType
+top::abs:Type ::=
+{
+  forwards to abs:builtinType([], abs:boolType());
 }
 
 -- TODO: can this be used from ableC:abstractsyntax instead of copied?
