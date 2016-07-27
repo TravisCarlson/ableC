@@ -1,22 +1,40 @@
 grammar edu:umn:cs:melt:exts:ableC:sqlite:abstractsyntax:types;
 
-imports edu:umn:cs:melt:ableC:abstractsyntax as abs;
+import edu:umn:cs:melt:ableC:abstractsyntax;
+import edu:umn:cs:melt:ableC:abstractsyntax:env;
 
 abstract production sqliteDbTypeExpr
-top::abs:BaseTypeExpr ::=
+top::BaseTypeExpr ::=
 {
---  top.typerep = sqliteDbType();
+  top.typerep = sqliteDbType([]);
   forwards to
-        abs:typedefTypeExpr(
-          [],
-          abs:name("sqlite3", location=builtIn())
-        );
+    typedefTypeExpr(
+      [],
+      name("_sqlite_db", location=builtIn())
+    );
 }
 
 abstract production sqliteDbType
-top::abs:Type ::=
+top::Type ::= qs::[Qualifier]
 {
-  forwards to abs:builtinType([], abs:boolType());
+  forwards to
+    noncanonicalType(
+      typedefType(
+        qs,
+        "_sqlite_db",
+        pointerType(
+          [],
+          tagType(
+            [],
+            refIdTagType(
+              structSEU(),
+              "_sqlite_db_s",
+              "edu:umn:cs:melt:exts:ableC:sqlite:_sqlite_db_s"
+            )
+          )
+        )
+      )
+    );
 }
 
 -- TODO: don't duplicate this

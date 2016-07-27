@@ -1,68 +1,71 @@
 grammar edu:umn:cs:melt:exts:ableC:sqlite:abstractsyntax:use;
 
-imports edu:umn:cs:melt:ableC:abstractsyntax as abs;
-imports edu:umn:cs:melt:ableC:abstractsyntax:construction as abs;
+imports edu:umn:cs:melt:exts:ableC:sqlite:abstractsyntax as abs;
 imports edu:umn:cs:melt:ableC:concretesyntax as cnc;
+imports edu:umn:cs:melt:ableC:abstractsyntax;
+imports edu:umn:cs:melt:ableC:abstractsyntax:construction;
 
 abstract production sqliteUse
-top::abs:Expr ::= dbname::String
+top::Expr ::= dbname::String
 {
---  top.typerep = sqliteDbType();
+  top.typerep = abs:sqliteDbType([]);
 
   {-- want to forward to:
-    sqlite3 *_db;
-    sqlite3_open(${dbname}, &_db);
+    _sqlite_db _db;
+    sqlite3_open(${dbname}, &_db->db);
   -}
 
-  local db :: abs:Name = abs:name("_db", location=top.location);
+  local db :: Name = name("_db", location=top.location);
 
-  -- sqlite3 *_db;
-  local dbDecl :: abs:Stmt =
-    abs:declStmt(
-      abs:variableDecls(
+  -- _sqlite_db _db;
+  local dbDecl :: Stmt =
+    declStmt(
+      variableDecls(
         [],
         [],
-        abs:typedefTypeExpr(
+        typedefTypeExpr(
           [],
-          abs:name("sqlite3", location=top.location)
+          name("_sqlite_db", location=top.location)
         ),
-        abs:foldDeclarator([
-          abs:declarator(
+        foldDeclarator([
+          declarator(
             db,
-            abs:pointerTypeExpr(
-              [],
-              abs:baseTypeExpr()
-            ),
+            baseTypeExpr(),
             [],
-            abs:nothingInitializer()
+            nothingInitializer()
           )
         ])
       )
     );
 
-  -- sqlite3_open(${dbname}, &_db);
-  local callOpen :: abs:Expr =
-    abs:directCallExpr(
-      abs:name("sqlite3_open", location=top.location),
-      abs:foldExpr([
-        abs:stringLiteral(dbname, location=top.location),
-        abs:unaryOpExpr(
-          abs:addressOfOp(location=top.location),
-          abs:declRefExpr(db, location=top.location),
+  -- sqlite3_open(${dbname}, &_db->db);
+  local callOpen :: Expr =
+    directCallExpr(
+      name("sqlite3_open", location=top.location),
+      foldExpr([
+        stringLiteral(dbname, location=top.location),
+        unaryOpExpr(
+          addressOfOp(location=top.location),
+          memberExpr(
+            declRefExpr(db, location=top.location),
+            true,
+            name("db", location=top.location),
+            location=top.location
+          ),
           location=top.location
         )
       ]),
       location=top.location
     );
 
-  local fullExpr :: abs:Expr =
-    abs:stmtExpr(
-      abs:foldStmt([
+  local fullExpr :: Expr =
+    stmtExpr(
+      foldStmt([
         dbDecl,
-        abs:exprStmt(callOpen)
+        exprStmt(callOpen)
       ]),
 
-      abs:declRefExpr(
+      declRefExpr(
         db,
         location=top.location
       ),

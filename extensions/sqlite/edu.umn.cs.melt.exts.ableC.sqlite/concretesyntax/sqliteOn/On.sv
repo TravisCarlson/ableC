@@ -12,21 +12,21 @@ terminal SqliteFor_t 'for';
 terminal SqliteQuery_t 'query';
 
 concrete production sqliteExit_c
-top::cnc:PrimaryExpr_c ::= SqliteOn_t db::cnc:Identifier_t SqliteExit_t
+top::cnc:PrimaryExpr_c ::= SqliteOn_t db::cnc:Expr_c SqliteExit_t
 {
-  top.ast = abs:sqliteExit(abs:fromId(db), location=top.location);
+  top.ast = abs:sqliteExit(db.ast, location=top.location);
 }
 
 concrete production sqliteForeach_c
-top::cnc:Stmt_c ::= SqliteOn_t db::cnc:Identifier_t SqliteFor_t '(' row::cnc:Identifier_t ':'
-                           stmt::cnc:Identifier_t ')' '{' body::cnc:Stmt_c '}'
+top::cnc:Stmt_c ::= SqliteOn_t db::cnc:Expr_c SqliteFor_t '(' row::cnc:Identifier_t ':'
+                           stmt::cnc:Expr_c ')' '{' body::cnc:Stmt_c '}'
 {
-  top.ast = abs:sqliteForeach(abs:fromId(row), abs:fromId(stmt), body.ast);
+  top.ast = abs:sqliteForeach(abs:fromId(row), stmt.ast, body.ast);
 }
 
 concrete production sqliteQueryDb_c
-top::cnc:PrimaryExpr_c ::= SqliteOn_t db::cnc:Identifier_t SqliteQuery_t '{' query::SqliteQuery_c '}'
+top::cnc:PrimaryExpr_c ::= SqliteOn_t db::cnc:Expr_c SqliteQuery_t '{' query::SqliteQuery_c '}'
 {
-  top.ast = abs:sqliteQueryDb(abs:fromId(db), query.pp, location=top.location);
+  top.ast = abs:sqliteQueryDb(db.ast, query.pp, location=top.location);
 }
 

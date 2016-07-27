@@ -1,4 +1,4 @@
-#include <sqlite3.h>
+#include <sqlite.xh>
 #include <stdlib.h>
 #include <stdio.h>
 
@@ -57,15 +57,15 @@ int main(void)
 //
 //  on db exit;
 
-  SqliteDb *db = use "test.db"
+  SqliteDb db = use "test.db"
                   with table tbl1 ( one VARCHAR,
                                     two INTEGER );
 
-  sqlite3_stmt *results = on db query {
+  sqlite3_stmt *rows = on db query {
     SELECT one, two FROM tbl1
   };
 
-  on db for (row : results) {
+  on db for (row : rows) {
 //    printf("%s %d\n", row.one, row.two);
     puts("got here");
   }

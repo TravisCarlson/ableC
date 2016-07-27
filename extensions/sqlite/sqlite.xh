@@ -1,0 +1,12 @@
+#include <sqlite3.h>
+
+#ifndef _SQLITE_XH
+#define _SQLITE_XH
+
+struct __attribute__((refId("edu:umn:cs:melt:exts:ableC:sqlite:_sqlite_db_s"))) _sqlite_db_s {
+  sqlite3 *db;
+};
+
+typedef struct _sqlite_db_s *_sqlite_db;
+
+#endif
