@@ -4,15 +4,16 @@ imports edu:umn:cs:melt:exts:ableC:sqlite:abstractsyntax as abs;
 imports edu:umn:cs:melt:ableC:concretesyntax as cnc;
 imports edu:umn:cs:melt:ableC:abstractsyntax;
 imports edu:umn:cs:melt:ableC:abstractsyntax:construction;
+imports edu:umn:cs:melt:exts:ableC:sqlite:abstractsyntax:tables;
 
 abstract production sqliteUse
-top::Expr ::= dbname::String
+top::Expr ::= dbName::String tableList::SqliteTableList
 {
-  top.typerep = abs:sqliteDbType([]);
+  top.typerep = abs:sqliteDbType([], tableList.tables);
 
   {-- want to forward to:
     _sqlite_db _db;
-    sqlite3_open(${dbname}, &_db->db);
+    sqlite3_open(${dbName}, &_db->db);
   -}
 
   local db :: Name = name("_db", location=top.location);
@@ -38,12 +39,12 @@ top::Expr ::= dbname::String
       )
     );
 
-  -- sqlite3_open(${dbname}, &_db->db);
+  -- sqlite3_open(${dbName}, &_db->db);
   local callOpen :: Expr =
     directCallExpr(
       name("sqlite3_open", location=top.location),
       foldExpr([
-        stringLiteral(dbname, location=top.location),
+        stringLiteral(dbName, location=top.location),
         unaryOpExpr(
           addressOfOp(location=top.location),
           memberExpr(

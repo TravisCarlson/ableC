@@ -2,16 +2,21 @@ grammar edu:umn:cs:melt:exts:ableC:sqlite:abstractsyntax:sqliteOn;
 
 imports edu:umn:cs:melt:exts:ableC:sqlite:abstractsyntax as abs;
 imports edu:umn:cs:melt:ableC:concretesyntax as cnc;
+imports edu:umn:cs:melt:exts:ableC:sqlite:abstractsyntax:tables;
 imports edu:umn:cs:melt:ableC:abstractsyntax;
 imports edu:umn:cs:melt:ableC:abstractsyntax:construction;
 imports silver:langutil;
+
+nonterminal SqliteQuery with pp, tables;
+synthesized attribute pp :: String;
+synthesized attribute tables :: [Name];
 
 abstract production sqliteExit
 top::Expr ::= db::Expr
 {
   local localErrors :: [Message] =
     case db.typerep of
-      abs:sqliteDbType(_) -> []
+      abs:sqliteDbType(_, _) -> []
     | errorType() -> []
     | _ -> [err(db.location, "expected SqliteDb type")]
     end;
@@ -34,8 +39,15 @@ top::Expr ::= db::Expr
 }
 
 abstract production sqliteQueryDb
-top::Expr ::= db::Expr query::String
+top::Expr ::= db::Expr query::SqliteQuery
 {
+  local localErrors :: [Message] =
+    case db.typerep of
+      abs:sqliteDbType(_, tables) -> checkTablesExist(tables, query.tables)
+    | errorType() -> []
+    | _ -> [err(db.location, "expected SqliteDb type")]
+    end;
+
   {-- want to forward to:
     const char *_query = ${query};
     sqlite3_stmt *_stmt;
@@ -74,10 +86,10 @@ top::Expr ::= db::Expr query::String
       name("sqlite3_prepare", location=top.location),
       foldExpr([
         memberExpr(db, true, name("db", location=top.location), location=top.location),
-        stringLiteral(quote(query), location=top.location),
+        stringLiteral(quote(query.pp), location=top.location),
         realConstant(
           integerConstant(
-            toString(length(query)),
+            toString(length(query.pp)),
             false,
             noIntSuffix(),
             location=top.location
@@ -111,7 +123,7 @@ top::Expr ::= db::Expr query::String
       location=top.location
     );
 
-  forwards to fullExpr;
+  forwards to mkErrorCheck(localErrors, fullExpr);
 }
 
 abstract production sqliteForeach
@@ -167,6 +179,13 @@ top::Stmt ::= row::Name stmt::Expr body::Stmt
   forwards to whileHasRow;
 }
 
+abstract production sqliteQuery
+top::SqliteQuery ::= pp::String tables::[Name]
+{
+  top.pp = pp;
+  top.tables = tables;
+}
+
 -- New location for expressions which don't have real locations
 abstract production builtIn
 top::Location ::=
@@ -185,5 +204,24 @@ function quote
 String ::= s::String
 {
   return "\"" ++ s ++ "\"";
+}
+
+function checkTablesExist
+[Message] ::= expectedTables::[SqliteTable] foundTables::[Name]
+{
+  local foundTable :: Name = head(foundTables);
+  local localErrors :: [Message] =
+    if tableExistsIn(expectedTables, foundTable) then []
+    else [err(foundTable.location, "no such table: " ++ foundTable.name)];
+
+  return if null(foundTables) then []
+         else localErrors ++ checkTablesExist(expectedTables, tail(foundTables));
+}
+
+function tableExistsIn
+Boolean ::= tables::[SqliteTable] table::Name
+{
+  return if null(tables) then false
+         else (head(tables).name.name == table.name) || tableExistsIn(tail(tables), table);
 }
 

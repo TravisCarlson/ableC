@@ -27,6 +27,6 @@ top::cnc:Stmt_c ::= SqliteOn_t db::cnc:Expr_c SqliteFor_t '(' row::cnc:Identifie
 concrete production sqliteQueryDb_c
 top::cnc:PrimaryExpr_c ::= SqliteOn_t db::cnc:Expr_c SqliteQuery_t '{' query::SqliteQuery_c '}'
 {
-  top.ast = abs:sqliteQueryDb(db.ast, query.pp, location=top.location);
+  top.ast = abs:sqliteQueryDb(db.ast, query.ast, location=top.location);
 }
 

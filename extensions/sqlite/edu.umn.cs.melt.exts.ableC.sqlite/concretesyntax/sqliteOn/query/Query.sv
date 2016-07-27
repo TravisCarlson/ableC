@@ -2,6 +2,7 @@ grammar edu:umn:cs:melt:exts:ableC:sqlite:concretesyntax:sqliteOn:query;
 
 imports edu:umn:cs:melt:ableC:concretesyntax as cnc;
 imports edu:umn:cs:melt:exts:ableC:sqlite:abstractsyntax as abs;
+imports edu:umn:cs:melt:ableC:abstractsyntax as abs;
 import silver:langutil;
 
 -- see https://www.sqlite.org/lang.html for grammar of SQLite queries
@@ -78,37 +79,43 @@ terminal SqliteUnaryPlus_t '+' precedence = 26;
 terminal SqliteUnaryCollate_t '~' precedence = 26;
 terminal SqliteNot_t 'NOT' precedence = 26, lexer classes {SqliteKeyword};
 
-nonterminal SqliteQuery_c with location, pp;
+nonterminal SqliteQuery_c with location, ast<abs:SqliteQuery>;
 concrete productions top::SqliteQuery_c
 | s::SqliteSelectStmt_c
   {
-    top.pp = s.pp;
+    top.ast = abs:sqliteQuery(s.pp, s.tables);
   }
 
 -- TODO: implement the full Select statement, this only supports Simple Select
-nonterminal SqliteSelectStmt_c with location, pp;
+nonterminal SqliteSelectStmt_c with location, pp, tables;
+synthesized attribute tables :: [abs:Name];
+
 concrete productions top::SqliteSelectStmt_c
 | w::SqliteOptWith_c s::SqliteSelectCore_c o::SqliteOptOrder_c l::SqliteOptLimit_c
   {
     top.pp = w.pp ++ s.pp ++ o.pp ++ l.pp;
+    top.tables = w.tables ++ s.tables ++ o.tables ++ l.tables;
   }
 
-nonterminal SqliteOptWith_c with location, pp;
+nonterminal SqliteOptWith_c with location, pp, tables;
 concrete productions top::SqliteOptWith_c
 | w::SqliteWith_c
   {
     top.pp = w.pp;
+    top.tables = w.tables;
   }
 |
   {
     top.pp = "";
+    top.tables = [];
   }
 
-nonterminal SqliteWith_c with location, pp;
+nonterminal SqliteWith_c with location, pp, tables;
 concrete productions top::SqliteWith_c
 | SqliteWith_t r::SqliteOptRecursive_c cs::SqliteCommonTableExprList_c
   {
     top.pp = "WITH " ++ r.pp ++ cs.pp;
+    top.tables = cs.tables;
   }
 
 nonterminal SqliteOptRecursive_c with location, pp;
@@ -122,42 +129,48 @@ concrete productions top::SqliteOptRecursive_c
     top.pp = "";
   }
 
-nonterminal SqliteCommonTableExprList_c with location, pp;
+nonterminal SqliteCommonTableExprList_c with location, pp, tables;
 concrete productions top::SqliteCommonTableExprList_c
 | cs::SqliteCommonTableExprList_c ',' c::SqliteCommonTableExpr_c
   {
     top.pp = cs.pp ++ ", " ++ c.pp;
+    top.tables = cs.tables ++ c.tables;
   }
 | c::SqliteCommonTableExpr_c
   {
     top.pp = c.pp;
+    top.tables = c.tables;
   }
 
-nonterminal SqliteCommonTableExpr_c with location, pp;
+nonterminal SqliteCommonTableExpr_c with location, pp, tables;
 concrete productions top::SqliteCommonTableExpr_c
 | tableName::cnc:Identifier_t cs::SqliteOptColumnNameList_c SqliteAs_t '(' s::SqliteSelectStmt_c ')'
   {
     top.pp = tableName.lexeme ++ cs.pp ++ " AS (" ++ s.pp ++ ")";
+    top.tables = cons(abs:fromId(tableName), s.tables);
   }
 
-nonterminal SqliteSelectCore_c with location, pp;
+nonterminal SqliteSelectCore_c with location, pp, tables;
 synthesized attribute pp :: String;
 concrete productions top::SqliteSelectCore_c
 | s::SqliteSelect_c
   {
     top.pp = s.pp;
+    top.tables = s.tables;
   }
 | v::SqliteValues_c
   {
     top.pp = v.pp;
+    top.tables = v.tables;
   }
 
-nonterminal SqliteSelect_c with location, pp;
+nonterminal SqliteSelect_c with location, pp, tables;
 concrete productions top::SqliteSelect_c
 | SqliteSelect_t d::SqliteOptDistinctOrAll_c rs::SqliteResultColumnList_c f::SqliteOptFrom_c
       w::SqliteOptWhere_c g::SqliteOptGroup_c
   {
     top.pp = "SELECT " ++ d.pp ++ rs.pp ++ f.pp ++ w.pp ++ g.pp;
+    top.tables = rs.tables ++ f.tables ++ w.tables ++ g.tables;
   }
 
 nonterminal SqliteOptDistinctOrAll_c with location, pp;
@@ -175,30 +188,35 @@ concrete productions top::SqliteOptDistinctOrAll_c
     top.pp = "";
   }
 
-nonterminal SqliteResultColumnList_c with location, pp;
+nonterminal SqliteResultColumnList_c with location, pp, tables;
 concrete productions top::SqliteResultColumnList_c
 | rs::SqliteResultColumnList_c ',' r::SqliteResultColumn_c
   {
     top.pp = rs.pp ++ ", " ++ r.pp;
+    top.tables = rs.tables ++ r.tables;
   }
 | r::SqliteResultColumn_c
   {
     top.pp = r.pp;
+    top.tables = r.tables;
   }
 
-nonterminal SqliteResultColumn_c with location, pp;
+nonterminal SqliteResultColumn_c with location, pp, tables;
 concrete productions top::SqliteResultColumn_c
 | e::SqliteExpr_c c::SqliteOptAsColumnAlias_c
   {
     top.pp = e.pp ++ c.pp;
+    top.tables = e.tables;
   }
 | '*'
   {
     top.pp = "*";
+    top.tables = [];
   }
 | tableName::cnc:Identifier_t '.' '*'
   {
     top.pp = tableName.lexeme ++ ".*";
+    top.tables = [abs:fromId(tableName)];
   }
 
 nonterminal SqliteOptAsColumnAlias_c with location, pp;
@@ -228,25 +246,28 @@ concrete productions top::SqliteOptAs_c
   {
   }
 
-nonterminal SqliteOptFrom_c with location, pp;
+nonterminal SqliteOptFrom_c with location, pp, tables;
 concrete productions top::SqliteOptFrom_c
 | f::SqliteFrom_c
   {
     top.pp = f.pp;
+    top.tables = f.tables;
   }
 |
   {
     top.pp = "";
+    top.tables = [];
   }
 
-nonterminal SqliteFrom_c with location, pp;
+nonterminal SqliteFrom_c with location, pp, tables;
 concrete productions top::SqliteFrom_c
 | SqliteFrom_t t::SqliteTableOrSubqueryListOrJoin_c
   {
     top.pp = " FROM " ++ t.pp;
+    top.tables = t.tables;
   }
 
-nonterminal SqliteTableOrSubqueryListOrJoin_c with location, pp;
+nonterminal SqliteTableOrSubqueryListOrJoin_c with location, pp, tables;
 concrete productions top::SqliteTableOrSubqueryListOrJoin_c
 -- This seems to be ambiguous with SqliteJoinClause_c?
 --| SqliteTableOrSubqueryList_c
@@ -255,6 +276,7 @@ concrete productions top::SqliteTableOrSubqueryListOrJoin_c
 | j::SqliteJoinClause_c
   {
     top.pp = j.pp;
+    top.tables = j.tables;
   }
 
 --nonterminal SqliteTableOrSubqueryList_c with location;
@@ -267,47 +289,54 @@ concrete productions top::SqliteTableOrSubqueryListOrJoin_c
 --  }
 
 -- TODO: complete
-nonterminal SqliteTableOrSubquery_c with location, pp;
+nonterminal SqliteTableOrSubquery_c with location, pp, tables;
 concrete productions top::SqliteTableOrSubquery_c
 | tableName::cnc:Identifier_t
   {
     top.pp = tableName.lexeme;
+    top.tables = [abs:fromId(tableName)];
   }
 
-nonterminal SqliteJoinClause_c with location, pp;
+nonterminal SqliteJoinClause_c with location, pp, tables;
 concrete productions top::SqliteJoinClause_c
 | t::SqliteTableOrSubquery_c j::SqliteOptJoinList_c
   {
     top.pp = t.pp ++ j.pp;
+    top.tables = t.tables ++ j.tables;
   }
 
-nonterminal SqliteOptJoinList_c with location, pp;
+nonterminal SqliteOptJoinList_c with location, pp, tables;
 concrete productions top::SqliteOptJoinList_c
 | js::SqliteJoinList_c
   {
     top.pp = js.pp;
+    top.tables = js.tables;
   }
 |
   {
     top.pp = "";
+    top.tables = [];
   }
 
-nonterminal SqliteJoinList_c with location, pp;
+nonterminal SqliteJoinList_c with location, pp, tables;
 concrete productions top::SqliteJoinList_c
 | js::SqliteJoinList_c j::SqliteJoin_c
   {
     top.pp = js.pp ++ j.pp;
+    top.tables = js.tables ++ j.tables;
   }
 | j::SqliteJoin_c
   {
     top.pp = j.pp;
+    top.tables = j.tables;
   }
 
-nonterminal SqliteJoin_c with location, pp;
+nonterminal SqliteJoin_c with location, pp, tables;
 concrete productions top::SqliteJoin_c
 | o::SqliteJoinOperator_c t::SqliteTableOrSubquery_c c::SqliteJoinConstraint_c
   {
     top.pp = o.pp ++ t.pp ++ c.pp;
+    top.tables = t.tables ++ c.tables;
   }
 
 nonterminal SqliteJoinOperator_c with location, pp;
@@ -362,110 +391,128 @@ concrete productions top::SqliteOptOuter_c
     top.pp = "";
   }
 
-nonterminal SqliteJoinConstraint_c with location, pp;
+nonterminal SqliteJoinConstraint_c with location, pp, tables;
 concrete productions top::SqliteJoinConstraint_c
 | SqliteOnConstraint_t e::SqliteExpr_c
   {
     top.pp = " ON " ++ e.pp;
+    top.tables = e.tables;
   }
 | SqliteUsing_t '(' cs::SqliteColumnNameList_c ')'
   {
     top.pp = "(" ++ cs.pp ++ ")";
+    top.tables = [];
   }
 |
   {
     top.pp = "";
+    top.tables = [];
   }
 
-nonterminal SqliteOptWhere_c with location, pp;
+nonterminal SqliteOptWhere_c with location, pp, tables;
 concrete productions top::SqliteOptWhere_c
 | w::SqliteWhere_c
   {
     top.pp = w.pp;
+    top.tables = w.tables;
   }
 |
   {
     top.pp = "";
+    top.tables = [];
   }
 
-nonterminal SqliteWhere_c with location, pp;
+nonterminal SqliteWhere_c with location, pp, tables;
 concrete productions top::SqliteWhere_c
 | SqliteWhere_t e::SqliteExpr_c
   {
     top.pp = " WHERE " ++ e.pp;
+    top.tables = e.tables;
   }
 
-nonterminal SqliteOptGroup_c with location, pp;
+nonterminal SqliteOptGroup_c with location, pp, tables;
 concrete productions top::SqliteOptGroup_c
 | g::SqliteGroup_c
   {
     top.pp = g.pp;
+    top.tables = g.tables;
   }
 |
   {
     top.pp = "";
+    top.tables = [];
   }
 
-nonterminal SqliteGroup_c with location, pp;
+nonterminal SqliteGroup_c with location, pp, tables;
 concrete productions top::SqliteGroup_c
 | SqliteGroup_t SqliteBy_t es::SqliteExprList_c h::SqliteOptHaving_c
   {
     top.pp = "GROUP BY " ++ es.pp ++ h.pp;
+    top.tables = es.tables ++ h.tables;
   }
 
-nonterminal SqliteOptHaving_c with location, pp;
+nonterminal SqliteOptHaving_c with location, pp, tables;
 concrete productions top::SqliteOptHaving_c
 | h::SqliteHaving_c
   {
     top.pp = h.pp;
+    top.tables = h.tables;
   }
 |
   {
     top.pp = "";
+    top.tables = [];
   }
 
-nonterminal SqliteHaving_c with location, pp;
+nonterminal SqliteHaving_c with location, pp, tables;
 concrete productions top::SqliteHaving_c
 | SqliteHaving_t e::SqliteExpr_c
   {
     top.pp = " HAVING " ++ e.pp;
+    top.tables = e.tables;
   }
 
-nonterminal SqliteValues_c with location, pp;
+nonterminal SqliteValues_c with location, pp, tables;
 concrete productions top::SqliteValues_c
 | SqliteValues_t es::SqliteExprListList_c
   {
     top.pp = "VALUES " ++ es.pp;
+    top.tables = es.tables;
   }
 
-nonterminal SqliteExprListList_c with location, pp;
+nonterminal SqliteExprListList_c with location, pp, tables;
 concrete productions top::SqliteExprListList_c
 | es::SqliteExprListList_c ',' '(' e::SqliteExprList_c ')'
   {
     top.pp = es.pp ++ ", (" ++ e.pp ++ ")";
+    top.tables = es.tables ++ e.tables;
   }
 | '(' e::SqliteExprList_c ')'
   {
     top.pp = "(" ++ e.pp ++ ")";
+    top.tables = e.tables;
   }
 
-nonterminal SqliteExprList_c with location, pp;
+nonterminal SqliteExprList_c with location, pp, tables;
 concrete productions top::SqliteExprList_c
 | es::SqliteExprList_c ',' e::SqliteExpr_c
   {
     top.pp = es.pp ++ ", " ++ e.pp;
+    top.tables = es.tables ++ e.tables;
   }
 | e::SqliteExpr_c
   {
     top.pp = e.pp;
+    top.tables = e.tables;
   }
 
 -- TODO: fully implement expressions
-nonterminal SqliteExpr_c with location, pp;
+nonterminal SqliteExpr_c with location, pp, tables;
 concrete productions top::SqliteExpr_c
 | l::SqliteLiteralValue_c
   {
     top.pp = l.pp;
+    top.tables = [];
   }
 --| SqliteBindParameter_c
 --  {
@@ -473,134 +520,167 @@ concrete productions top::SqliteExpr_c
 | n::SqliteSchemaTableColumnName_c
   {
     top.pp = n.pp;
+    top.tables = n.tables;
   }
 | e1::SqliteExpr_c SqliteOr_t e2::SqliteExpr_c
   {
     top.pp = e1.pp ++ " OR " ++ e2.pp;
+    top.tables = e1.tables ++ e2.tables;
   }
 | e1::SqliteExpr_c SqliteAnd_t e2::SqliteExpr_c
   {
     top.pp = e1.pp ++ " AND " ++ e2.pp;
+    top.tables = e1.tables ++ e2.tables;
   }
 | e1::SqliteExpr_c SqliteEquals_t e2::SqliteExpr_c
   {
     top.pp = e1.pp ++ " = " ++ e2.pp;
+    top.tables = e1.tables ++ e2.tables;
   }
 | e1::SqliteExpr_c SqliteEquals2_t e2::SqliteExpr_c
   {
     top.pp = e1.pp ++ " == " ++ e2.pp;
+    top.tables = e1.tables ++ e2.tables;
   }
 | e1::SqliteExpr_c SqliteNotEqual_t e2::SqliteExpr_c
   {
     top.pp = e1.pp ++ " != " ++ e2.pp;
+    top.tables = e1.tables ++ e2.tables;
   }
 | e1::SqliteExpr_c SqliteNotEqual2_t e2::SqliteExpr_c
   {
     top.pp = e1.pp ++ " <> " ++ e2.pp;
+    top.tables = e1.tables ++ e2.tables;
   }
 | e1::SqliteExpr_c SqliteIs_t e2::SqliteExpr_c
   {
     top.pp = e1.pp ++ " IS " ++ e2.pp;
+    top.tables = e1.tables ++ e2.tables;
   }
 | e1::SqliteExpr_c SqliteIn_t e2::SqliteExpr_c
   {
     top.pp = e1.pp ++ " IN " ++ e2.pp;
+    top.tables = e1.tables ++ e2.tables;
   }
 | e1::SqliteExpr_c SqliteLike_t e2::SqliteExpr_c
   {
     top.pp = e1.pp ++ " LIKE " ++ e2.pp;
+    top.tables = e1.tables ++ e2.tables;
   }
 | e1::SqliteExpr_c SqliteGlob_t e2::SqliteExpr_c
   {
     top.pp = e1.pp ++ " GLOB " ++ e2.pp;
+    top.tables = e1.tables ++ e2.tables;
   }
 | e1::SqliteExpr_c SqliteMatch_t e2::SqliteExpr_c
   {
     top.pp = e1.pp ++ " MATCH " ++ e2.pp;
+    top.tables = e1.tables ++ e2.tables;
   }
 | e1::SqliteExpr_c SqliteRegexp_t e2::SqliteExpr_c
   {
     top.pp = e1.pp ++ " REGEXP " ++ e2.pp;
+    top.tables = e1.tables ++ e2.tables;
   }
 | e1::SqliteExpr_c SqliteLt_t e2::SqliteExpr_c
   {
     top.pp = e1.pp ++ " < " ++ e2.pp;
+    top.tables = e1.tables ++ e2.tables;
   }
 | e1::SqliteExpr_c SqliteLe_t e2::SqliteExpr_c
   {
     top.pp = e1.pp ++ " <= " ++ e2.pp;
+    top.tables = e1.tables ++ e2.tables;
   }
 | e1::SqliteExpr_c SqliteGt_t e2::SqliteExpr_c
   {
     top.pp = e1.pp ++ " > " ++ e2.pp;
+    top.tables = e1.tables ++ e2.tables;
   }
 | e1::SqliteExpr_c SqliteGe_t e2::SqliteExpr_c
   {
     top.pp = e1.pp ++ " >= " ++ e2.pp;
+    top.tables = e1.tables ++ e2.tables;
   }
 | e1::SqliteExpr_c SqliteSl_t e2::SqliteExpr_c
   {
     top.pp = e1.pp ++ " << " ++ e2.pp;
+    top.tables = e1.tables ++ e2.tables;
   }
 | e1::SqliteExpr_c SqliteSr_t e2::SqliteExpr_c
   {
     top.pp = e1.pp ++ " >> " ++ e2.pp;
+    top.tables = e1.tables ++ e2.tables;
   }
 | e1::SqliteExpr_c SqliteAndBit_t e2::SqliteExpr_c
   {
     top.pp = e1.pp ++ " & " ++ e2.pp;
+    top.tables = e1.tables ++ e2.tables;
   }
 | e1::SqliteExpr_c SqliteOrBit_t e2::SqliteExpr_c
   {
     top.pp = e1.pp ++ " | " ++ e2.pp;
+    top.tables = e1.tables ++ e2.tables;
   }
 | e1::SqliteExpr_c SqlitePlus_t e2::SqliteExpr_c
   {
     top.pp = e1.pp ++ " + " ++ e2.pp;
+    top.tables = e1.tables ++ e2.tables;
   }
 | e1::SqliteExpr_c SqliteMinus_t e2::SqliteExpr_c
   {
     top.pp = e1.pp ++ " - " ++ e2.pp;
+    top.tables = e1.tables ++ e2.tables;
   }
 | e1::SqliteExpr_c SqliteTimes_t e2::SqliteExpr_c
   {
     top.pp = e1.pp ++ " * " ++ e2.pp;
+    top.tables = e1.tables ++ e2.tables;
   }
 | e1::SqliteExpr_c SqliteDiv_t e2::SqliteExpr_c
   {
     top.pp = e1.pp ++ " / " ++ e2.pp;
+    top.tables = e1.tables ++ e2.tables;
   }
 | e1::SqliteExpr_c SqliteMod_t e2::SqliteExpr_c
   {
     top.pp = e1.pp ++ " % " ++ e2.pp;
+    top.tables = e1.tables ++ e2.tables;
   }
 | e1::SqliteExpr_c SqliteConcat_t e2::SqliteExpr_c
   {
     top.pp = e1.pp ++ " || " ++ e2.pp;
+    top.tables = e1.tables ++ e2.tables;
   }
 | SqliteUnaryMinus_t e::SqliteExpr_c
   {
     top.pp = "-" ++ e.pp;
+    top.tables = e.tables;
   }
 | SqliteUnaryPlus_t e::SqliteExpr_c
   {
     top.pp = "+" ++ e.pp;
+    top.tables = e.tables;
   }
 | SqliteUnaryCollate_t e::SqliteExpr_c
   {
     top.pp = "~" ++ e.pp;
+    top.tables = e.tables;
   }
 | SqliteNot_t e::SqliteExpr_c
   {
     top.pp = "NOT " ++ e.pp;
+    top.tables = e.tables;
   }
 | functionName::cnc:Identifier_t '(' a::SqliteOptFunctionArgs_c ')'
   {
     top.pp = functionName.lexeme ++ "(" ++ a.pp ++ ")";
+    top.tables = a.tables;
   }
 | '(' e::SqliteExpr_c ')'
   {
     top.pp = "(" ++ e.pp ++ ")";
+    top.tables = e.tables;
   }
 --| SqliteCast_t '(' SqliteExpr_c SqliteAs_t SqliteTypeName_c ')'
 --  {
@@ -630,19 +710,22 @@ concrete productions top::SqliteExpr_c
 --  {
 --  }
 
-nonterminal SqliteSchemaTableColumnName_c with location, pp;
+nonterminal SqliteSchemaTableColumnName_c with location, pp, tables;
 concrete productions top::SqliteSchemaTableColumnName_c
 | schemaName::cnc:Identifier_t '.' tableName::cnc:Identifier_t '.' columnName::cnc:Identifier_t
   {
     top.pp = schemaName.lexeme ++ "." ++ tableName.lexeme ++ "." ++ columnName.lexeme;
+    top.tables = [abs:fromId(tableName)];
   }
 | tableName::cnc:Identifier_t '.' columnName::cnc:Identifier_t
   {
     top.pp = tableName.lexeme ++ "." ++ columnName.lexeme;
+    top.tables = [abs:fromId(tableName)];
   }
 | columnName::cnc:Identifier_t
   {
     top.pp = columnName.lexeme;
+    top.tables = [];
   }
 
 nonterminal SqliteLiteralValue_c with location, pp;
@@ -687,19 +770,22 @@ concrete productions top::SqliteNumericLiteral_c
     top.pp = l.lexeme;
   }
 
-nonterminal SqliteOptFunctionArgs_c with location, pp;
+nonterminal SqliteOptFunctionArgs_c with location, pp, tables;
 concrete productions top::SqliteOptFunctionArgs_c
 | d::SqliteOptDistinct_c es::SqliteExprList_c
   {
     top.pp = d.pp ++ es.pp;
+    top.tables = es.tables;
   }
 | '*'
   {
     top.pp = "*";
+    top.tables = [];
   }
 |
   {
     top.pp = "";
+    top.tables = [];
   }
 
 nonterminal SqliteOptDistinct_c with location, pp;
@@ -735,40 +821,46 @@ concrete productions top::SqliteColumnNameList_c
     top.pp = c.lexeme;
   }
 
-nonterminal SqliteOptOrder_c with location, pp;
+nonterminal SqliteOptOrder_c with location, pp, tables;
 concrete productions top::SqliteOptOrder_c
 | o::SqliteOrder_c
   {
     top.pp = o.pp;
+    top.tables = o.tables;
   }
 |
   {
     top.pp = "";
+    top.tables = [];
   }
 
-nonterminal SqliteOrder_c with location, pp;
+nonterminal SqliteOrder_c with location, pp, tables;
 concrete productions top::SqliteOrder_c
 | SqliteOrder_t SqliteBy_t os::SqliteOrderingTermList_c
   {
     top.pp = " ORDER BY " ++ os.pp;
+    top.tables = os.tables;
   }
 
-nonterminal SqliteOrderingTermList_c with location, pp;
+nonterminal SqliteOrderingTermList_c with location, pp, tables;
 concrete productions top::SqliteOrderingTermList_c
 | os::SqliteOrderingTermList_c ',' o::SqliteOrderingTerm_c
   {
     top.pp = os.pp ++ ", " ++ o.pp;
+    top.tables = os.tables ++ o.tables;
   }
 | o::SqliteOrderingTerm_c
   {
     top.pp = o.pp;
+    top.tables = o.tables;
   }
 
-nonterminal SqliteOrderingTerm_c with location, pp;
+nonterminal SqliteOrderingTerm_c with location, pp, tables;
 concrete productions top::SqliteOrderingTerm_c
 | e::SqliteExpr_c c::SqliteOptCollate_c
   {
     top.pp = e.pp ++ c.pp;
+    top.tables = e.tables;
   }
 
 nonterminal SqliteOptCollate_c with location, pp;
@@ -811,40 +903,46 @@ concrete productions top::SqliteAscOrDesc_c
     top.pp = " DESC";
   }
 
-nonterminal SqliteOptLimit_c with location, pp;
+nonterminal SqliteOptLimit_c with location, pp, tables;
 concrete productions top::SqliteOptLimit_c
 | l::SqliteLimit_c
   {
     top.pp = l.pp;
+    top.tables = l.tables;
   }
 |
   {
     top.pp = "";
+    top.tables = [];
   }
 
-nonterminal SqliteLimit_c with location, pp;
+nonterminal SqliteLimit_c with location, pp, tables;
 concrete productions top::SqliteLimit_c
 | SqliteLimit_t e::SqliteExpr_c o::SqliteOptOffsetExpr_c
   {
     top.pp = " LIMIT " ++ e.pp ++ o.pp;
+    top.tables = e.tables ++ o.tables;
   }
 
-nonterminal SqliteOptOffsetExpr_c with location, pp;
+nonterminal SqliteOptOffsetExpr_c with location, pp, tables;
 concrete productions top::SqliteOptOffsetExpr_c
 | o::SqliteOffsetExpr_c
   {
     top.pp = o.pp;
+    top.tables = o.tables;
   }
 |
   {
     top.pp = "";
+    top.tables = [];
   }
 
-nonterminal SqliteOffsetExpr_c with location, pp;
+nonterminal SqliteOffsetExpr_c with location, pp, tables;
 concrete productions top::SqliteOffsetExpr_c
 | o::SqliteOffsetOrComma_c e::SqliteExpr_c
   {
     top.pp = o.pp ++ e.pp;
+    top.tables = e.tables;
   }
 
 nonterminal SqliteOffsetOrComma_c with location, pp;

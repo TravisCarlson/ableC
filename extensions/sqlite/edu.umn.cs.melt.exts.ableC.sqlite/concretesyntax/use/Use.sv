@@ -12,9 +12,9 @@ terminal SqliteVarchar_t 'VARCHAR';
 terminal SqliteInteger_t 'INTEGER';
 
 concrete production sqliteUse_c
-top::cnc:PrimaryExpr_c ::= SqliteUse_t dbname::cnc:StringConstant_c SqliteTableList_c
+top::cnc:PrimaryExpr_c ::= SqliteUse_t dbname::cnc:StringConstant_c tables::SqliteTableList_c
 {
-  top.ast = abs:sqliteUse(dbname.ast, location=top.location);
+  top.ast = abs:sqliteUse(dbname.ast, tables.ast, location=top.location);
 }
 
 nonterminal SqliteTableList_c with ast<abs:SqliteTableList>, location;
