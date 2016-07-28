@@ -7,72 +7,43 @@ imports edu:umn:cs:melt:ableC:abstractsyntax:construction;
 imports edu:umn:cs:melt:exts:ableC:sqlite:abstractsyntax:tables;
 
 abstract production sqliteUse
-top::Expr ::= dbName::String tableList::SqliteTableList
+top::Stmt ::= dbFilename::String dbName::Name tableList::SqliteTableList
 {
-  top.typerep = abs:sqliteDbType([], tableList.tables);
+  -- _sqlite_db ${dbName} = _new_sqlite_db(${dbFilename});
+  local callNew :: Expr =
+    directCallExpr(
+      name("_new_sqlite_db", location=builtIn()),
+      foldExpr([
+        stringLiteral(dbFilename, location=builtIn())
+      ]),
+      location=builtIn()
+    );
 
-  {-- want to forward to:
-    _sqlite_db _db;
-    sqlite3_open(${dbName}, &_db->db);
-  -}
-
-  local db :: Name = name("_db", location=top.location);
-
-  -- _sqlite_db _db;
+  -- _sqlite_db ${dbName} = _new_sqlite_db();
   local dbDecl :: Stmt =
     declStmt(
       variableDecls(
         [],
         [],
-        typedefTypeExpr(
-          [],
-          name("_sqlite_db", location=top.location)
-        ),
+        abs:sqliteDbTypeExpr(tableList.tables),
         foldDeclarator([
           declarator(
-            db,
+            dbName,
             baseTypeExpr(),
             [],
-            nothingInitializer()
-          )
+            justInitializer(exprInitializer(callNew)))
         ])
       )
     );
 
-  -- sqlite3_open(${dbName}, &_db->db);
-  local callOpen :: Expr =
-    directCallExpr(
-      name("sqlite3_open", location=top.location),
-      foldExpr([
-        stringLiteral(dbName, location=top.location),
-        unaryOpExpr(
-          addressOfOp(location=top.location),
-          memberExpr(
-            declRefExpr(db, location=top.location),
-            true,
-            name("db", location=top.location),
-            location=top.location
-          ),
-          location=top.location
-        )
-      ]),
-      location=top.location
-    );
+  forwards to dbDecl;
+}
 
-  local fullExpr :: Expr =
-    stmtExpr(
-      foldStmt([
-        dbDecl,
-        exprStmt(callOpen)
-      ]),
-
-      declRefExpr(
-        db,
-        location=top.location
-      ),
-      location=top.location
-    );
-
-  forwards to fullExpr;
+-- TODO: don't duplicate this
+-- New location for expressions which don't have real locations
+abstract production builtIn
+top::Location ::=
+{
+  forwards to loc("Built In", 0, 0, 0, 0, 0, 0);
 }
 

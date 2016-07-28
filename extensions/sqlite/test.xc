@@ -3,17 +3,29 @@
 
 int main(void)
 {
-  SqliteDb db = use "test.db"
-                  with table tbl1 ( one VARCHAR,
-                                    two INTEGER );
-
-//  SqliteRows *rows = on db query {
-  sqlite3_stmt *rows = on db query {
-    SELECT one, two FROM tbl1
+  use "test.db" as db with {
+    table person  ( person_id  INTEGER,
+                    first_name VARCHAR,
+                    last_name  VARCHAR ),
+    table details ( person_id  INTEGER,
+                    age        INTEGER,
+                    gender     VARCHAR )
   };
 
-  on db for (row : rows) {
-//    printf("%s %d\n", row.one, row.two);
+  int limit = 25;
+
+//  on db query {
+  sqlite3_stmt *people = on db query {
+    SELECT age, gender, last_name
+    FROM   person, details
+    WHERE  person.person_id =
+           details.person_id
+       AND details.age > limit
+//  } as people;
+  };
+
+  on db for (person : people) {
+//    printf("%d %s %s\n", person.age, person.gender, person.last_name);
     puts("got here");
   }
 

@@ -21,17 +21,11 @@ top::Expr ::= db::Expr
     | _ -> [err(db.location, "expected SqliteDb type")]
     end;
 
-  {-- want to forward to:
-    sqlite3_close(${db}.db);
-  -}
-
-  -- sqlite3_close(${db}.db);
+  -- _delete_sqlite_db(${db});
   local callClose :: Expr =
     directCallExpr(
-      name("sqlite3_close", location=top.location),
-      foldExpr([
-        memberExpr(db, true, name("db", location=top.location), location=top.location)
-      ]),
+      name("_delete_sqlite_db", location=top.location),
+      foldExpr([db]),
       location=top.location
     );
 

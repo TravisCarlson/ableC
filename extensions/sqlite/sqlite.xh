@@ -1,7 +1,8 @@
-#include <sqlite3.h>
-
 #ifndef _SQLITE_XH
 #define _SQLITE_XH
+
+# include <sqlite3.h>
+# include <stdlib.h>
 
 struct __attribute__((refId("edu:umn:cs:melt:exts:ableC:sqlite:_sqlite_db_s"))) _sqlite_db_s {
   sqlite3 *db;
@@ -9,4 +10,18 @@ struct __attribute__((refId("edu:umn:cs:melt:exts:ableC:sqlite:_sqlite_db_s"))) 
 
 typedef struct _sqlite_db_s *_sqlite_db;
 
+_sqlite_db _new_sqlite_db(const char *filename)
+{
+  _sqlite_db db = malloc(sizeof(struct _sqlite_db_s));
+  sqlite3_open(filename, &db->db);
+  return db;
+}
+
+void _delete_sqlite_db(_sqlite_db db)
+{
+  sqlite3_close(db->db);
+  free(db);
+}
+
 #endif
+
