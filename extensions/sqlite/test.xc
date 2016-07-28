@@ -12,19 +12,18 @@ int main(void)
                     gender     VARCHAR )
   };
 
-  int limit = 25;
+  int limit = 18;
 
-//  on db query {
-  sqlite3_stmt *people = on db query {
+  on db query {
     SELECT age, gender, last_name
     FROM   person, details
     WHERE  person.person_id =
            details.person_id
-       AND details.age > limit
-//  } as people;
-  };
+//       AND details.age > limit
+       AND details.age > 18
+  } as people;
 
-  on db for (person : people) {
+  foreach (person : people) {
 //    printf("%d %s %s\n", person.age, person.gender, person.last_name);
     puts("got here");
   }

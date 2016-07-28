@@ -18,7 +18,7 @@ top::Expr ::= db::Expr
     case db.typerep of
       abs:sqliteDbType(_, _) -> []
     | errorType() -> []
-    | _ -> [err(db.location, "expected SqliteDb type")]
+    | _ -> [err(db.location, "expected _sqlite_db type")]
     end;
 
   -- _delete_sqlite_db(${db});
@@ -33,7 +33,7 @@ top::Expr ::= db::Expr
 }
 
 abstract production sqliteQueryDb
-top::Expr ::= db::Expr query::SqliteQuery
+top::Stmt ::= db::Expr query::SqliteQuery queryName::Name
 {
   local localErrors :: [Message] =
     case db.typerep of
@@ -43,26 +43,23 @@ top::Expr ::= db::Expr query::SqliteQuery
     end;
 
   {-- want to forward to:
-    const char *_query = ${query};
-    sqlite3_stmt *_stmt;
-    sqlite3_prepare(${db}.db, _query, sizeof(query), &_stmt, NULL);
+    sqlite3_stmt *${queryName};
+    sqlite3_prepare(${db}.db, _query, sizeof(_query), &${queryName}, NULL);
   -}
 
-  local stmt :: Name = name("_stmt", location=top.location);
-
-  -- sqlite3_stmt *_stmt;
-  local stmtDecl :: Stmt =
+  -- sqlite3_stmt *${queryName};
+  local queryDecl :: Stmt =
     declStmt(
       variableDecls(
         [],
         [],
         typedefTypeExpr(
           [],
-          name("sqlite3_stmt", location=top.location)
+          name("sqlite3_stmt", location=builtIn())
         ),
         foldDeclarator([
           declarator(
-            stmt,
+            queryName,
             pointerTypeExpr(
               [],
               baseTypeExpr()
@@ -74,50 +71,42 @@ top::Expr ::= db::Expr query::SqliteQuery
       )
     );
 
-  -- sqlite3_prepare(${db}.db, _query, sizeof(query), &_stmt, NULL);
+  -- sqlite3_prepare(${db}.db, _query, sizeof(_query), &${queryName}, NULL);
   local callPrepare :: Expr =
     directCallExpr(
-      name("sqlite3_prepare", location=top.location),
+      name("sqlite3_prepare", location=builtIn()),
       foldExpr([
-        memberExpr(db, true, name("db", location=top.location), location=top.location),
-        stringLiteral(quote(query.pp), location=top.location),
+        memberExpr(db, true, name("db", location=builtIn()), location=builtIn()),
+        stringLiteral(quote(query.pp), location=builtIn()),
         realConstant(
           integerConstant(
             toString(length(query.pp)),
             false,
             noIntSuffix(),
-            location=top.location
+            location=builtIn()
           ),
-          location=top.location
+          location=builtIn()
         ),
         unaryOpExpr(
-          addressOfOp(location=top.location),
-          declRefExpr(stmt, location=top.location),
-          location=top.location
+          addressOfOp(location=builtIn()),
+          declRefExpr(queryName, location=builtIn()),
+          location=builtIn()
         ),
         realConstant(
-          integerConstant("0", false, noIntSuffix(), location=top.location),
-          location=top.location
+          integerConstant("0", false, noIntSuffix(), location=builtIn()),
+          location=builtIn()
         )
       ]),
-      location=top.location
+      location=builtIn()
     );
 
-  local fullExpr :: Expr =
-    stmtExpr(
-      foldStmt([
-        stmtDecl,
-        exprStmt(callPrepare)
-      ]),
+  local fullStmt :: Stmt =
+    foldStmt([
+      queryDecl,
+      exprStmt(mkErrorCheck(localErrors, callPrepare))
+    ]);
 
-      declRefExpr(
-        stmt,
-        location=top.location
-      ),
-      location=top.location
-    );
-
-  forwards to mkErrorCheck(localErrors, fullExpr);
+  forwards to fullStmt;
 }
 
 abstract production sqliteForeach
