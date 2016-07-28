@@ -9,13 +9,6 @@ abstract production sqliteDbTypeExpr
 top::BaseTypeExpr ::= tables::[tbls:SqliteTable]
 {
   top.typerep = sqliteDbType([], tables);
---    [
---      tbls:sqliteTable(
---        name("tbl1", location=builtIn()),
---        tbls:sqliteNilColumnDeclList()
---      )
---    ]
---  );
 
   forwards to
     typedefTypeExpr(
@@ -40,6 +33,41 @@ top::Type ::= qs::[Qualifier] tables::[tbls:SqliteTable]
               structSEU(),
               "_sqlite_db_s",
               "edu:umn:cs:melt:exts:ableC:sqlite:_sqlite_db_s"
+            )
+          )
+        )
+      )
+    );
+}
+
+abstract production sqliteQueryTypeExpr
+top::BaseTypeExpr ::=
+{
+  top.typerep = sqliteQueryType([]);
+
+  forwards to
+    typedefTypeExpr(
+      [],
+      name("_sqlite_query", location=builtIn())
+    );
+}
+
+abstract production sqliteQueryType
+top::Type ::= qs::[Qualifier]
+{
+  forwards to
+    noncanonicalType(
+      typedefType(
+        qs,
+        "_sqlite_query",
+        pointerType(
+          [],
+          tagType(
+            [],
+            refIdTagType(
+              structSEU(),
+              "_sqlite_query_s",
+              "edu:umn:cs:melt:exts:ableC:sqlite:_sqlite_query_s"
             )
           )
         )

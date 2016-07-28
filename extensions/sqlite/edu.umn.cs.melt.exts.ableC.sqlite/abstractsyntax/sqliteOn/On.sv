@@ -43,35 +43,37 @@ top::Stmt ::= db::Expr query::SqliteQuery queryName::Name
     end;
 
   {-- want to forward to:
-    sqlite3_stmt *${queryName};
-    sqlite3_prepare(${db}.db, _query, sizeof(_query), &${queryName}, NULL);
+    _sqlite_query ${queryName} = _new_sqlite_query();
+    sqlite3_prepare(${db}.db, _query, sizeof(_query), &${queryName}.query, NULL);
   -}
 
-  -- sqlite3_stmt *${queryName};
+  -- _new_sqlite_query();
+  local callNew :: Expr =
+    directCallExpr(
+      name("_new_sqlite_query", location=builtIn()),
+      nilExpr(),
+      location=builtIn()
+    );
+
+  -- _sqlite_query ${queryName} = _new_sqlite_query();
   local queryDecl :: Stmt =
     declStmt(
       variableDecls(
         [],
         [],
-        typedefTypeExpr(
-          [],
-          name("sqlite3_stmt", location=builtIn())
-        ),
+        abs:sqliteQueryTypeExpr(),
         foldDeclarator([
           declarator(
             queryName,
-            pointerTypeExpr(
-              [],
-              baseTypeExpr()
-            ),
+            baseTypeExpr(),
             [],
-            nothingInitializer()
+            justInitializer(exprInitializer(callNew))
           )
         ])
       )
     );
 
-  -- sqlite3_prepare(${db}.db, _query, sizeof(_query), &${queryName}, NULL);
+  -- sqlite3_prepare(${db}.db, _query, sizeof(_query), &${queryName}.query, NULL);
   local callPrepare :: Expr =
     directCallExpr(
       name("sqlite3_prepare", location=builtIn()),
@@ -89,7 +91,12 @@ top::Stmt ::= db::Expr query::SqliteQuery queryName::Name
         ),
         unaryOpExpr(
           addressOfOp(location=builtIn()),
-          declRefExpr(queryName, location=builtIn()),
+          memberExpr(
+            declRefExpr(queryName, location=builtIn()),
+            true,
+            name("query", location=builtIn()),
+            location=builtIn()
+          ),
           location=builtIn()
         ),
         realConstant(
@@ -110,18 +117,18 @@ top::Stmt ::= db::Expr query::SqliteQuery queryName::Name
 }
 
 abstract production sqliteForeach
-top::Stmt ::= row::Name stmt::Expr body::Stmt
+top::Stmt ::= row::Name query::Expr body::Stmt
 {
   {-- want to forward to:
     struct _row_t {
       const unsigned char *one;
       int two;
     };
-    sqlite3_reset(${stmt});
-    while (sqlite3_step(${stmt}) == SQLITE_ROW) {
+    sqlite3_reset(${query}.query);
+    while (sqlite3_step(${query}.query) == SQLITE_ROW) {
       struct _row_t ${row};
-      ${row}.one = sqlite3_column_text(${stmt}, 0);
-      ${row}.two = sqlite3_column_int(${stmt}, 1);
+      ${row}.one = sqlite3_column_text(${query}.query, 0);
+      ${row}.two = sqlite3_column_int(${query}.query, 1);
       ${body};
     }
   -}
@@ -135,15 +142,15 @@ top::Stmt ::= row::Name stmt::Expr body::Stmt
 --      location=builtIn()
 --    );
 
-  -- sqlite3_step(${stmt})
+  -- sqlite3_step(${query}.query)
   local callStep :: Expr =
     directCallExpr(
       name("sqlite3_step", location=builtIn()),
-      foldExpr([stmt]),
+      foldExpr([memberExpr(query, true, name("query", location=builtIn()), location=builtIn())]),
       location=builtIn()
     );
 
-  -- sqlite3_step(${stmt}) == SQLITE_ROW
+  -- sqlite3_step(${query}.query) == SQLITE_ROW
   local hasRow :: Expr =
     binaryOpExpr(
       callStep,
@@ -152,7 +159,7 @@ top::Stmt ::= row::Name stmt::Expr body::Stmt
       location=builtIn()
     );
 
-  -- while (sqlite3_step(${stmt}) == SQLITE_ROW) { ${body}; }
+  -- while (sqlite3_step(${query}.query) == SQLITE_ROW) { ${body}; }
   local whileHasRow :: Stmt =
     whileStmt(
       hasRow,

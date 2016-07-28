@@ -9,7 +9,7 @@ imports edu:umn:cs:melt:exts:ableC:sqlite:abstractsyntax:tables;
 abstract production sqliteUse
 top::Stmt ::= dbFilename::String dbName::Name tableList::SqliteTableList
 {
-  -- _sqlite_db ${dbName} = _new_sqlite_db(${dbFilename});
+  -- _new_sqlite_db(${dbFilename});
   local callNew :: Expr =
     directCallExpr(
       name("_new_sqlite_db", location=builtIn()),
@@ -19,7 +19,7 @@ top::Stmt ::= dbFilename::String dbName::Name tableList::SqliteTableList
       location=builtIn()
     );
 
-  -- _sqlite_db ${dbName} = _new_sqlite_db();
+  -- _sqlite_db ${dbName} = _new_sqlite_db(${dbFilename});
   local dbDecl :: Stmt =
     declStmt(
       variableDecls(
