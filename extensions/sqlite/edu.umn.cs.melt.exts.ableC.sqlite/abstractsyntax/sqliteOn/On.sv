@@ -117,30 +117,26 @@ top::Stmt ::= db::Expr query::SqliteQuery queryName::Name
 }
 
 abstract production sqliteForeach
-top::Stmt ::= row::Name query::Expr body::Stmt
+top::Stmt ::= row::Name query::Expr body::Stmt columns::[SqliteColumn]
 {
   {-- want to forward to:
-    struct _row_t {
-      const unsigned char *one;
-      int two;
-    };
     sqlite3_reset(${query}.query);
     while (sqlite3_step(${query}.query) == SQLITE_ROW) {
-      struct _row_t ${row};
-      ${row}.one = sqlite3_column_text(${query}.query, 0);
-      ${row}.two = sqlite3_column_int(${query}.query, 1);
+      struct {
+        <column declarations>;
+      } ${row};
+      <column initializations>;
       ${body};
     }
   -}
 
-  -- SQLITE_ROW
-  local sqlite_row :: Expr =
-    -- TODO: don't hardcode value
-    mkIntConst(100, builtIn());
---    declRefExpr(
---      name("SQLITE_ROW", location=builtIn()),
---      location=builtIn()
---    );
+  -- sqlite3_reset(${query}.query)
+  local callReset :: Expr =
+    directCallExpr(
+      name("sqlite3_reset", location=builtIn()),
+      foldExpr([memberExpr(query, true, name("query", location=builtIn()), location=builtIn())]),
+      location=builtIn()
+    );
 
   -- sqlite3_step(${query}.query)
   local callStep :: Expr =
@@ -150,23 +146,160 @@ top::Stmt ::= row::Name query::Expr body::Stmt
       location=builtIn()
     );
 
+  -- SQLITE_ROW
+  local sqliteRow :: Expr =
+    -- TODO: don't hardcode value
+    mkIntConst(100, builtIn());
+--    declRefExpr(
+--      name("SQLITE_ROW", location=builtIn()),
+--      location=builtIn()
+--    );
+
   -- sqlite3_step(${query}.query) == SQLITE_ROW
   local hasRow :: Expr =
     binaryOpExpr(
       callStep,
       compareOp(equalsOp(location=builtIn()), location=builtIn()),
-      sqlite_row,
+      sqliteRow,
       location=builtIn()
     );
 
-  -- while (sqlite3_step(${query}.query) == SQLITE_ROW) { ${body}; }
+  -- for example: const unsigned char *name; int age;
+  local columnDecls :: StructItemList =
+    foldStructItem([
+      structItem(
+        [],
+        directTypeExpr(builtinType([], signedType(intType()))),
+        foldStructDeclarator([
+          structField(
+            name("age", location=builtIn()),
+            baseTypeExpr(),
+            []
+          )
+        ])
+      ),
+      structItem(
+        [],
+        directTypeExpr(builtinType([constQualifier()], unsignedType(charType()))),
+        foldStructDeclarator([
+          structField(
+            name("gender", location=builtIn()),
+            pointerTypeExpr([], baseTypeExpr()),
+            []
+          )
+        ])
+      ),
+      structItem(
+        [],
+        directTypeExpr(builtinType([constQualifier()], unsignedType(charType()))),
+        foldStructDeclarator([
+          structField(
+            name("last_name", location=builtIn()),
+            pointerTypeExpr([], baseTypeExpr()),
+            []
+          )
+        ])
+      )
+    ]);
+
+  -- struct { <column declarations> }
+  local rowTypeExpr :: BaseTypeExpr =
+    structTypeExpr(
+      [],
+      structDecl(
+        [],
+        nothingName(),
+        columnDecls,
+        location=builtIn()
+      )
+    );
+
+  {- for example:
+      { sqlite3_column_text(${query}.query, 0),
+        sqlite3_column_int(${query}.query, 1) }
+  -}
+  local rowInit :: Initializer =
+    objectInitializer(
+      foldInit([
+        init(
+          exprInitializer(
+            directCallExpr(
+              name("sqlite3_column_int", location=builtIn()),
+              foldExpr([
+                memberExpr(query, true, name("query", location=builtIn()), location=builtIn()),
+                realConstant(
+                  integerConstant("0", true, noIntSuffix(), location=builtIn()),
+                  location=builtIn())
+              ]),
+              location=builtIn()
+            )
+          )
+        ),
+        init(
+          exprInitializer(
+            directCallExpr(
+              name("sqlite3_column_text", location=builtIn()),
+              foldExpr([
+                memberExpr(query, true, name("query", location=builtIn()), location=builtIn()),
+                realConstant(
+                  integerConstant("1", true, noIntSuffix(), location=builtIn()),
+                  location=builtIn())
+              ]),
+              location=builtIn()
+            )
+          )
+        ),
+        init(
+          exprInitializer(
+            directCallExpr(
+              name("sqlite3_column_text", location=builtIn()),
+              foldExpr([
+                memberExpr(query, true, name("query", location=builtIn()), location=builtIn()),
+                realConstant(
+                  integerConstant("2", true, noIntSuffix(), location=builtIn()),
+                  location=builtIn())
+              ]),
+              location=builtIn()
+            )
+          )
+        )
+      ])
+    );
+
+  -- struct { <column declarations> } ${row} = { <column initializations> } ;
+  local rowDecl :: Stmt =
+    declStmt(
+      variableDecls(
+        [],
+        [],
+        rowTypeExpr,
+        foldDeclarator([
+          declarator(
+            row,
+            baseTypeExpr(),
+            [],
+            justInitializer(rowInit)
+          )
+        ])
+      )
+    );
+
   local whileHasRow :: Stmt =
     whileStmt(
       hasRow,
-      body
+      foldStmt([
+        rowDecl,
+        body
+      ])
     );
 
-  forwards to whileHasRow;
+  local fullStmt :: Stmt =
+    foldStmt([
+      exprStmt(callReset),
+      whileHasRow
+    ]);
+
+  forwards to fullStmt;
 }
 
 abstract production sqliteQuery

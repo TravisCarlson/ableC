@@ -17,36 +17,36 @@ top::SqliteTableList ::=
   top.tables = nil();
 }
 
-nonterminal SqliteTable with name, columnDecls;
+nonterminal SqliteTable with name, columns;
 synthesized attribute name :: abs:Name;
-synthesized attribute columnDecls :: [SqliteColumnDecl];
+synthesized attribute columns :: [SqliteColumn];
 
 abstract production sqliteTable
-top::SqliteTable ::= n::abs:Name cs::SqliteColumnDeclList
+top::SqliteTable ::= n::abs:Name cs::SqliteColumnList
 {
   top.name = n;
-  top.columnDecls = cs.columnDecls;
+  top.columns = cs.columns;
 }
 
-nonterminal SqliteColumnDeclList with columnDecls;
+nonterminal SqliteColumnList with columns;
 
-abstract production sqliteColumnDeclList
-top::SqliteColumnDeclList ::= c::SqliteColumnDecl cs::SqliteColumnDeclList
+abstract production sqliteColumnList
+top::SqliteColumnList ::= c::SqliteColumn cs::SqliteColumnList
 {
-  top.columnDecls = cons(c, cs.columnDecls);
+  top.columns = cons(c, cs.columns);
 }
 
-abstract production sqliteNilColumnDeclList
-top::SqliteColumnDeclList ::=
+abstract production sqliteNilColumnList
+top::SqliteColumnList ::=
 {
-  top.columnDecls = nil();
+  top.columns = nil();
 }
 
-nonterminal SqliteColumnDecl with name, typ;
+nonterminal SqliteColumn with name, typ;
 synthesized attribute typ :: SqliteColumnType;
 
-abstract production sqliteColumnDecl
-top::SqliteColumnDecl ::= n::abs:Name t::SqliteColumnType
+abstract production sqliteColumn
+top::SqliteColumn ::= n::abs:Name t::SqliteColumnType
 {
   top.name = n;
   top.typ = t;

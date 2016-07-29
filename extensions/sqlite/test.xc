@@ -24,8 +24,7 @@ int main(void)
   } as people;
 
   foreach (person : people) {
-//    printf("%d %s %s\n", person.age, person.gender, person.last_name);
-    puts("got here");
+    printf("%d %s %s\n", person.age, person.gender, person.last_name);
   }
 
   on db exit;

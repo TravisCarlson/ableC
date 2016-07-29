@@ -22,7 +22,7 @@ concrete production sqliteForeach_c
 top::cnc:Stmt_c ::= 'foreach' '(' row::cnc:Identifier_t ':'
                            stmt::cnc:Expr_c ')' '{' body::cnc:Stmt_c '}'
 {
-  top.ast = abs:sqliteForeach(abs:fromId(row), stmt.ast, body.ast);
+  top.ast = abs:sqliteForeach(abs:fromId(row), stmt.ast, body.ast, []);
 }
 
 concrete production sqliteQueryDb_c

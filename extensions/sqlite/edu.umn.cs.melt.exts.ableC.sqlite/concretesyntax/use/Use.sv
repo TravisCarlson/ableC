@@ -44,31 +44,31 @@ concrete productions top::SqliteTableList_c
 
 nonterminal SqliteTable_c with ast<abs:SqliteTable>, location;
 concrete productions top::SqliteTable_c
-| 'table' n::cnc:Identifier_t '(' cs::SqliteColumnDeclList_c ')'
+| 'table' n::cnc:Identifier_t '(' cs::SqliteColumnList_c ')'
   {
     top.ast = abs:sqliteTable(abs:fromId(n), cs.ast);
   }
 
-nonterminal SqliteColumnDeclList_c with ast<abs:SqliteColumnDeclList>, location;
-concrete productions top::SqliteColumnDeclList_c
-| cs::SqliteColumnDeclList_c ',' c::SqliteColumnDecl_c
+nonterminal SqliteColumnList_c with ast<abs:SqliteColumnList>, location;
+concrete productions top::SqliteColumnList_c
+| cs::SqliteColumnList_c ',' c::SqliteColumn_c
   {
-    top.ast = abs:sqliteColumnDeclList(c.ast, cs.ast);
+    top.ast = abs:sqliteColumnList(c.ast, cs.ast);
   }
-| c::SqliteColumnDecl_c
+| c::SqliteColumn_c
   {
-    top.ast = abs:sqliteColumnDeclList(c.ast, abs:sqliteNilColumnDeclList());
+    top.ast = abs:sqliteColumnList(c.ast, abs:sqliteNilColumnList());
   }
 |
   {
-    top.ast = abs:sqliteNilColumnDeclList();
+    top.ast = abs:sqliteNilColumnList();
   }
 
-nonterminal SqliteColumnDecl_c with ast<abs:SqliteColumnDecl>, location;
-concrete productions top::SqliteColumnDecl_c
+nonterminal SqliteColumn_c with ast<abs:SqliteColumn>, location;
+concrete productions top::SqliteColumn_c
 | n::cnc:Identifier_t t::SqliteColumnType_c
   {
-    top.ast = abs:sqliteColumnDecl(abs:fromId(n), t.ast);
+    top.ast = abs:sqliteColumn(abs:fromId(n), t.ast);
   }
 
 nonterminal SqliteColumnType_c with ast<abs:SqliteColumnType>, location;
