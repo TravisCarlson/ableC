@@ -212,7 +212,7 @@ top::Stmt ::= row::Name query::Expr body::Stmt columns::[SqliteColumn]
   -- struct { <column declarations> }
   local rowTypeExpr :: BaseTypeExpr =
     structTypeExpr(
-      [],
+      [constQualifier()],
       structDecl(
         [],
         nothingName(),
@@ -309,13 +309,6 @@ top::Stmt ::= row::Name query::Expr body::Stmt columns::[SqliteColumn]
   forwards to fullStmt;
 }
 
-abstract production sqliteQuery
-top::SqliteQuery ::= pp::String tables::[Name]
-{
-  top.pp = pp;
-  top.tables = tables;
-}
-
 -- New location for expressions which don't have real locations
 abstract production builtIn
 top::Location ::=
@@ -334,24 +327,5 @@ function quote
 String ::= s::String
 {
   return "\"" ++ s ++ "\"";
-}
-
-function checkTablesExist
-[Message] ::= expectedTables::[SqliteTable] foundTables::[Name]
-{
-  local foundTable :: Name = head(foundTables);
-  local localErrors :: [Message] =
-    if tableExistsIn(expectedTables, foundTable) then []
-    else [err(foundTable.location, "no such table: " ++ foundTable.name)];
-
-  return if null(foundTables) then []
-         else localErrors ++ checkTablesExist(expectedTables, tail(foundTables));
-}
-
-function tableExistsIn
-Boolean ::= tables::[SqliteTable] table::Name
-{
-  return if null(tables) then false
-         else (head(tables).name.name == table.name) || tableExistsIn(tail(tables), table);
 }
 
