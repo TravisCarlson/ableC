@@ -3,14 +3,14 @@
 
 int main(void)
 {
-  use "test.db" as db with {
+  use "test.db" with {
     table person  ( person_id  INTEGER,
                     first_name VARCHAR,
                     last_name  VARCHAR ),
     table details ( person_id  INTEGER,
                     age        INTEGER,
                     gender     VARCHAR )
-  };
+  } as db;
 
   int limit = 18;
 

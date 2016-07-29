@@ -14,8 +14,8 @@ terminal SqliteVarchar_t 'VARCHAR';
 terminal SqliteInteger_t 'INTEGER';
 
 concrete production sqliteUse_c
-top::cnc:Stmt_c ::= 'use' dbFilename::cnc:StringConstant_c 'as'
-                            dbName::cnc:Identifier_t tables::SqliteOptWithTables_c
+top::cnc:Stmt_c ::= 'use' dbFilename::cnc:StringConstant_c tables::SqliteOptWithTables_c
+                    'as' dbName::cnc:Identifier_t
 {
   top.ast = abs:sqliteUse(dbFilename.ast, abs:fromId(dbName), tables.ast);
 }
