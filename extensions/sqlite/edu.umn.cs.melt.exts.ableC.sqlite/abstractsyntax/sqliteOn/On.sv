@@ -39,7 +39,7 @@ top::Stmt ::= db::Expr query::SqliteQuery queryName::Name
     case db.typerep of
       abs:sqliteDbType(_, tables) -> checkTablesExist(tables, query.tables)
     | errorType() -> []
-    | _ -> [err(db.location, "expected SqliteDb type")]
+    | _ -> [err(db.location, "expected _sqlite_db type")]
     end;
 
   {-- want to forward to:
@@ -119,6 +119,13 @@ top::Stmt ::= db::Expr query::SqliteQuery queryName::Name
 abstract production sqliteForeach
 top::Stmt ::= row::Name query::Expr body::Stmt columns::[SqliteColumn]
 {
+  local localErrors :: [Message] =
+    case query.typerep of
+      abs:sqliteQueryType(_) -> []
+    | errorType() -> []
+    | _ -> [err(query.location, "expected _sqlite_query type in foreach loop")]
+    end;
+
   {-- want to forward to:
     sqlite3_reset(${query}.query);
     while (sqlite3_step(${query}.query) == SQLITE_ROW) {
@@ -286,7 +293,7 @@ top::Stmt ::= row::Name query::Expr body::Stmt columns::[SqliteColumn]
 
   local whileHasRow :: Stmt =
     whileStmt(
-      hasRow,
+      mkErrorCheck(localErrors, hasRow),
       foldStmt([
         rowDecl,
         body
