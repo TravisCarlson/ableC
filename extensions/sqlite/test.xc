@@ -16,11 +16,10 @@ int main(void)
 
   on db query {
     SELECT age, gender, last_name
-    FROM   person, details
-    WHERE  person.person_id =
-           details.person_id
-//       AND details.age > limit
-       AND details.age > 18
+    FROM   person JOIN details ON person.person_id = details.person_id
+//    WHERE  age > limit
+    WHERE  age > 18
+    ORDER BY last_name DESC
   } as people;
 
   foreach (person : people) {

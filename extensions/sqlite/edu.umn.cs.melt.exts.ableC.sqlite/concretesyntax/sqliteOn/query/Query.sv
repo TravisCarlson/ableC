@@ -347,7 +347,7 @@ concrete productions top::SqliteJoinOperator_c
   }
 | n::SqliteOptNatural_c l::SqliteOptLeftOrInnerOrCross_c j::SqliteJoin_t
   {
-    top.pp = n.pp ++ l.pp ++ " JOIN";
+    top.pp = n.pp ++ l.pp ++ " JOIN ";
   }
 
 nonterminal SqliteOptNatural_c with location, pp;
@@ -857,9 +857,9 @@ concrete productions top::SqliteOrderingTermList_c
 
 nonterminal SqliteOrderingTerm_c with location, pp, tables;
 concrete productions top::SqliteOrderingTerm_c
-| e::SqliteExpr_c c::SqliteOptCollate_c
+| e::SqliteExpr_c c::SqliteOptCollate_c a::SqliteOptAscOrDesc_c
   {
-    top.pp = e.pp ++ c.pp;
+    top.pp = e.pp ++ c.pp ++ a.pp;
     top.tables = e.tables;
   }
 
@@ -876,9 +876,9 @@ concrete productions top::SqliteOptCollate_c
 
 nonterminal SqliteCollate_c with location, pp;
 concrete productions top::SqliteCollate_c
-| SqliteCollate_t collationName::cnc:Identifier_t a::SqliteOptAscOrDesc_c
+| SqliteCollate_t collationName::cnc:Identifier_t
   {
-    top.pp = " COLLATE " ++ collationName.lexeme ++ a.pp;
+    top.pp = " COLLATE " ++ collationName.lexeme;
   }
 
 nonterminal SqliteOptAscOrDesc_c with location, pp;
