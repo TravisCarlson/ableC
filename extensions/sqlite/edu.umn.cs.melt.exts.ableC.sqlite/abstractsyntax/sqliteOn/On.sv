@@ -7,10 +7,6 @@ imports edu:umn:cs:melt:ableC:abstractsyntax;
 imports edu:umn:cs:melt:ableC:abstractsyntax:construction;
 imports silver:langutil;
 
-nonterminal SqliteQuery with pp, tables;
-synthesized attribute pp :: String;
-synthesized attribute tables :: [Name];
-
 abstract production sqliteExit
 top::Expr ::= db::Expr
 {
@@ -79,10 +75,10 @@ top::Stmt ::= db::Expr query::SqliteQuery queryName::Name
       name("sqlite3_prepare", location=builtIn()),
       foldExpr([
         memberExpr(db, true, name("db", location=builtIn()), location=builtIn()),
-        stringLiteral(quote(query.pp), location=builtIn()),
+        stringLiteral(quote(query.queryStr), location=builtIn()),
         realConstant(
           integerConstant(
-            toString(length(query.pp)),
+            toString(length(query.queryStr)),
             false,
             noIntSuffix(),
             location=builtIn()
