@@ -740,7 +740,7 @@ concrete productions top::SqliteSchemaTableColumnName_c
   }
 | columnName::cnc:Identifier_t
   {
-    top.ast = abs:sqliteColumnName(abs:fromId(columnName));
+    top.ast = abs:sqliteSColumnName(abs:fromId(columnName));
     top.unparse = columnName.lexeme;
   }
 

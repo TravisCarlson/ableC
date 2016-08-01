@@ -33,10 +33,19 @@ top::Stmt ::= db::Expr query::SqliteQuery queryName::Name
 {
   local localErrors :: [Message] =
     case db.typerep of
-      abs:sqliteDbType(_, tables) -> checkTablesExist(tables, query.tables)
+      abs:sqliteDbType(_, tables) -> checkTablesExist(tables, query.usedTables)
     | errorType() -> []
     | _ -> [err(db.location, "expected _sqlite_db type")]
     end;
+
+  local tables :: [SqliteTable] =
+    case db.typerep of
+      abs:sqliteDbType(_, tables) -> tables
+    | _                           -> []
+    end;
+
+  local resultColumns :: [SqliteColumn] =
+    makeResultColumns(query.resultColumns, tables);
 
   {-- want to forward to:
     _sqlite_query ${queryName} = _new_sqlite_query();
@@ -57,7 +66,7 @@ top::Stmt ::= db::Expr query::SqliteQuery queryName::Name
       variableDecls(
         [],
         [],
-        abs:sqliteQueryTypeExpr(query.resultColumns),
+        abs:sqliteQueryTypeExpr(resultColumns),
         foldDeclarator([
           declarator(
             queryName,
@@ -311,17 +320,22 @@ StructItem ::= col::SqliteColumn
       sqliteVarchar() -> pointerTypeExpr([], baseTypeExpr())
     | sqliteInteger() -> baseTypeExpr()
     end;
+  local attribute n :: Name =
+    case col.columnName.alias of
+      just(n)   -> n
+    | nothing() -> case col.columnName.mName of
+                     just(n)   -> n
+                   -- FIXME: this should be an error Message
+                   | nothing() -> name("error: expression not aliased", location=builtIn())
+                   end
+    end;
 
   return
       structItem(
         [],
         typeExpr,
         foldStructDeclarator([
-          structField(
-            col.name,
-            mod,
-            []
-          )
+          structField(n, mod, [])
         ])
       );
 }
