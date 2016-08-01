@@ -15,7 +15,7 @@ int main(void)
   int limit = 18;
 
   on db query {
-    SELECT   age, gender, last_name
+    SELECT   person.age, gender, last_name
     FROM     person JOIN details
                       ON person.person_id = details.person_id
 //    WHERE    age > limit

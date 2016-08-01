@@ -437,35 +437,44 @@ Boolean ::= tables::[SqliteTable] table::Name
 }
 
 function makeResultColumns
-[SqliteColumn] ::= columnNames::[SqliteColumnName] tables::[SqliteTable]
+Pair<[SqliteColumn] [Message]> ::= columnNames::[SqliteColumnName] tables::[SqliteTable]
 {
-  local attribute rest :: [SqliteColumn] =
+  local attribute rest :: Pair<[SqliteColumn] [Message]> =
     makeResultColumns(tail(columnNames), tables);
-  return if null(columnNames) then []
+  return if null(columnNames) then pair([], [])
          else
            case makeResultColumn(head(columnNames), tables) of
-             just(c)   -> cons(c, rest)
-           | nothing() -> rest
+             pair(just(c), errs)   -> pair(cons(c, rest.fst), errs ++ rest.snd)
+           | pair(nothing(), errs) -> pair(rest.fst, errs ++ rest.snd)
            end;
 }
 
 function makeResultColumn
-Maybe<SqliteColumn> ::= columnName::SqliteColumnName tables::[SqliteTable]
+Pair<Maybe<SqliteColumn> [Message]> ::= columnName::SqliteColumnName tables::[SqliteTable]
 {
-  return
+  local attribute n :: Name =
     case columnName.mName of
-      just(n)   -> just(sqliteColumn(columnName, lookupColumnTypeInTables(n, tables)))
-    | nothing() -> nothing()
+      just(n2)  -> n2
+    | nothing() -> error("derefencing column name that does not exist")
+    end;
+
+  local attribute foundType :: Maybe<SqliteColumnType> =
+    lookupColumnTypeInTables(n, tables);
+
+  return
+    case foundType of
+      just(t)   -> pair(just(sqliteColumn(columnName, t)), [])
+    | nothing() -> pair(nothing(), [err(n.location, "no such column: " ++ n.name)])
     end;
 }
 
 function lookupColumnTypeInTables
-SqliteColumnType ::= n::Name tables::[SqliteTable]
+Maybe<SqliteColumnType> ::= n::Name tables::[SqliteTable]
 {
   return
-    if null(tables) then error("no such column: " ++ n.name)
+    if null(tables) then nothing()
     else case lookupColumnTypeInColumns(n, head(tables).columns) of
-           just(t)   -> t
+           just(t)   -> just(t)
          | nothing() -> lookupColumnTypeInTables(n, tail(tables))
          end;
 }

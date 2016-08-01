@@ -31,7 +31,7 @@ top::Expr ::= db::Expr
 abstract production sqliteQueryDb
 top::Stmt ::= db::Expr query::SqliteQuery queryName::Name
 {
-  local localErrors :: [Message] =
+  local tableErrors :: [Message] =
     case db.typerep of
       abs:sqliteDbType(_, tables) -> checkTablesExist(tables, query.usedTables)
     | errorType() -> []
@@ -44,8 +44,13 @@ top::Stmt ::= db::Expr query::SqliteQuery queryName::Name
     | _                           -> []
     end;
 
-  local resultColumns :: [SqliteColumn] =
+  local resultColumnsPair :: Pair<[SqliteColumn] [Message]> =
     makeResultColumns(query.resultColumns, tables);
+  local resultColumns :: [SqliteColumn] = resultColumnsPair.fst;
+  local columnErrors :: [Message] = resultColumnsPair.snd;
+
+  local localErrors :: [Message] =
+    tableErrors ++ columnErrors;
 
   {-- want to forward to:
     _sqlite_query ${queryName} = _new_sqlite_query();
