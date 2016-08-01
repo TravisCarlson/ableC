@@ -57,7 +57,7 @@ top::Stmt ::= db::Expr query::SqliteQuery queryName::Name
       variableDecls(
         [],
         [],
-        abs:sqliteQueryTypeExpr(query.columns),
+        abs:sqliteQueryTypeExpr(query.resultColumns),
         foldDeclarator([
           declarator(
             queryName,

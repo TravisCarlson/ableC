@@ -8,24 +8,24 @@ imports edu:umn:cs:melt:ableC:abstractsyntax;
 imports edu:umn:cs:melt:ableC:abstractsyntax:construction;
 imports silver:langutil;
 
-nonterminal SqliteQuery with queryStr, tables, columns;
+nonterminal SqliteQuery with queryStr, tables, resultColumns;
 synthesized attribute queryStr :: String;
 synthesized attribute tables :: [Name];
-synthesized attribute columns :: [SqliteColumn];
+synthesized attribute resultColumns :: [SqliteColumn];
 
 abstract production sqliteSelectQuery
 top::SqliteQuery ::= s::SqliteSelectStmt queryStr::String
 {
   top.queryStr = queryStr;
   top.tables = s.tables;
-  top.columns = [
-      sqliteColumn(name("age",       location=builtIn()), sqliteInteger()),
-      sqliteColumn(name("gender",    location=builtIn()), sqliteVarchar()),
-      sqliteColumn(name("last_name", location=builtIn()), sqliteVarchar())
-    ];
+  top.resultColumns = s.resultColumns;
+--      sqliteColumn(name("age",       location=builtIn()), sqliteInteger()),
+--      sqliteColumn(name("gender",    location=builtIn()), sqliteVarchar()),
+--      sqliteColumn(name("last_name", location=builtIn()), sqliteVarchar())
+--    ];
 }
 
-nonterminal SqliteSelectStmt with tables;
+nonterminal SqliteSelectStmt with tables, resultColumns;
 abstract production sqliteSelectStmt
 top::SqliteSelectStmt ::= mw::Maybe<SqliteWith> s::SqliteSelectCore mo::Maybe<SqliteOrder> ml::Maybe<SqliteLimit>
 {
@@ -37,6 +37,7 @@ top::SqliteSelectStmt ::= mw::Maybe<SqliteWith> s::SqliteSelectCore mo::Maybe<Sq
     case ml of just(l) -> l.tables | nothing() -> [] end;
 
   top.tables = wtables ++ s.tables ++ otables ++ ltables;
+  top.resultColumns = s.resultColumns;
 }
 
 nonterminal SqliteWith with tables;
@@ -65,19 +66,21 @@ top::SqliteCommonTableExpr ::= tableName::Name s::SqliteSelectStmt mcs::Maybe<Sq
   top.tables = [tableName];
 }
 
-nonterminal SqliteSelectCore with tables;
+nonterminal SqliteSelectCore with tables, resultColumns;
 abstract production sqliteSelectCoreSelect
 top::SqliteSelectCore ::= s::SqliteSelect
 {
   top.tables = s.tables;
+  top.resultColumns = s.resultColumns;
 }
 abstract production sqliteSelectCoreValues
 top::SqliteSelectCore ::= v::SqliteValues
 {
   top.tables = v.tables;
+  top.resultColumns = [];
 }
 
-nonterminal SqliteSelect with tables;
+nonterminal SqliteSelect with tables, resultColumns;
 abstract production sqliteSelect
 top::SqliteSelect ::= md::Maybe<SqliteDistinctOrAll> rs::SqliteResultColumnList mf::Maybe<SqliteFrom>
                       mw::Maybe<SqliteWhere> mg::Maybe<SqliteGroup>
@@ -89,7 +92,8 @@ top::SqliteSelect ::= md::Maybe<SqliteDistinctOrAll> rs::SqliteResultColumnList 
   local attribute gtables :: [Name] =
     case mg of just(g) -> g.tables | nothing() -> [] end;
 
-    top.tables = rs.tables ++ ftables ++ wtables ++ gtables;
+  top.tables = rs.tables ++ ftables ++ wtables ++ gtables;
+  top.resultColumns = reverse(rs.resultColumns);
 }
 
 nonterminal SqliteDistinctOrAll;
@@ -102,24 +106,32 @@ top::SqliteDistinctOrAll ::=
 {
 }
 
-nonterminal SqliteResultColumnList with tables;
+nonterminal SqliteResultColumnList with tables, resultColumns;
 abstract production sqliteResultColumnList
 top::SqliteResultColumnList ::= r::SqliteResultColumn rs::SqliteResultColumnList
 {
   top.tables = rs.tables ++ r.tables;
+  top.resultColumns = cons(r.resultColumn, rs.resultColumns);
 }
 
 abstract production sqliteNilResultColumnList
 top::SqliteResultColumnList ::=
 {
   top.tables = [];
+  top.resultColumns = [];
 }
 
-nonterminal SqliteResultColumn with tables;
+nonterminal SqliteResultColumn with tables, resultColumn;
+synthesized attribute resultColumn :: SqliteColumn;
 abstract production sqliteResultColumnExpr
 top::SqliteResultColumn ::= e::SqliteExpr mc::Maybe<SqliteAsColumnAlias>
 {
   top.tables = e.tables;
+  top.resultColumn =
+    case e of
+      sqliteSchemaTableColumnNameExpr(n) -> sqliteColumn(n.columnName, sqliteInteger())
+    | _                                  -> sqliteExprColumn()
+    end;
 }
 abstract production sqliteResultColumnStar
 top::SqliteResultColumn ::=
@@ -310,21 +322,25 @@ top::SqliteExpr ::= functionName::Name ma::Maybe<SqliteFunctionArgs>
   top.tables = atables;
 }
 
-nonterminal SqliteSchemaTableColumnName with tables;
+nonterminal SqliteSchemaTableColumnName with tables, columnName;
+synthesized attribute columnName :: Name;
 abstract production sqliteSchemaTableColumnName
 top::SqliteSchemaTableColumnName ::= schemaName::Name tableName::Name columnName::Name
 {
   top.tables = [tableName];
+  top.columnName = columnName;
 }
 abstract production sqliteTableColumnName
 top::SqliteSchemaTableColumnName ::= tableName::Name columnName::Name
 {
   top.tables = [tableName];
+  top.columnName = columnName;
 }
 abstract production sqliteColumnName
 top::SqliteSchemaTableColumnName ::= columnName::Name
 {
   top.tables = [];
+  top.columnName = columnName;
 }
 
 nonterminal SqliteFunctionArgs with tables;

@@ -52,6 +52,11 @@ top::SqliteColumn ::= n::abs:Name t::SqliteColumnType
   top.typ = t;
 }
 
+abstract production sqliteExprColumn
+top::SqliteColumn ::=
+{
+}
+
 nonterminal SqliteColumnType;
 
 abstract production sqliteVarchar
