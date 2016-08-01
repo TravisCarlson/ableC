@@ -113,7 +113,7 @@ top::Stmt ::= db::Expr query::SqliteQuery queryName::Name
 }
 
 abstract production sqliteForeach
-top::Stmt ::= row::Name query::Expr body::Stmt columns::[SqliteColumn]
+top::Stmt ::= row::Name query::Expr body::Stmt
 {
   local localErrors :: [Message] =
     case query.typerep of
@@ -121,6 +121,12 @@ top::Stmt ::= row::Name query::Expr body::Stmt columns::[SqliteColumn]
     | errorType() -> []
     | _ -> [err(query.location, "expected _sqlite_query type in foreach loop")]
     end;
+
+  local columns :: [SqliteColumn] = [
+      sqliteColumn(name("age", location=builtIn()), sqliteInteger()),
+      sqliteColumn(name("gender", location=builtIn()), sqliteVarchar()),
+      sqliteColumn(name("last_name", location=builtIn()), sqliteVarchar())
+    ];
 
   {-- want to forward to:
     sqlite3_reset(${query}.query);
@@ -168,42 +174,7 @@ top::Stmt ::= row::Name query::Expr body::Stmt columns::[SqliteColumn]
     );
 
   -- for example: const unsigned char *name; int age;
-  local columnDecls :: StructItemList =
-    foldStructItem([
-      structItem(
-        [],
-        directTypeExpr(builtinType([], signedType(intType()))),
-        foldStructDeclarator([
-          structField(
-            name("age", location=builtIn()),
-            baseTypeExpr(),
-            []
-          )
-        ])
-      ),
-      structItem(
-        [],
-        directTypeExpr(builtinType([constQualifier()], unsignedType(charType()))),
-        foldStructDeclarator([
-          structField(
-            name("gender", location=builtIn()),
-            pointerTypeExpr([], baseTypeExpr()),
-            []
-          )
-        ])
-      ),
-      structItem(
-        [],
-        directTypeExpr(builtinType([constQualifier()], unsignedType(charType()))),
-        foldStructDeclarator([
-          structField(
-            name("last_name", location=builtIn()),
-            pointerTypeExpr([], baseTypeExpr()),
-            []
-          )
-        ])
-      )
-    ]);
+  local columnDecls :: StructItemList = getColumnDecls(columns);
 
   -- struct { <column declarations> }
   local rowTypeExpr :: BaseTypeExpr =
@@ -310,6 +281,49 @@ abstract production builtIn
 top::Location ::=
 {
   forwards to loc("Built In", 0, 0, 0, 0, 0, 0);
+}
+
+function getColumnDecls
+StructItemList ::= columns::[SqliteColumn]
+{
+  return
+    if null(columns)
+      then nilStructItem()
+      else consStructItem(
+        getColumnDecl(head(columns)),
+        getColumnDecls(tail(columns))
+      )
+    ;
+}
+
+function getColumnDecl
+StructItem ::= col::SqliteColumn
+{
+  local attribute typeExpr :: BaseTypeExpr =
+    case col.typ of
+      sqliteVarchar() ->
+        directTypeExpr(builtinType([constQualifier()], unsignedType(charType())))
+    | sqliteInteger() ->
+        directTypeExpr(builtinType([], signedType(intType())))
+    end;
+  local attribute mod :: TypeModifierExpr =
+    case col.typ of
+      sqliteVarchar() -> pointerTypeExpr([], baseTypeExpr())
+    | sqliteInteger() -> baseTypeExpr()
+    end;
+
+  return
+      structItem(
+        [],
+        typeExpr,
+        foldStructDeclarator([
+          structField(
+            col.name,
+            mod,
+            []
+          )
+        ])
+      );
 }
 
 -- TODO: can this be used from ableC:abstractsyntax instead of copied?
