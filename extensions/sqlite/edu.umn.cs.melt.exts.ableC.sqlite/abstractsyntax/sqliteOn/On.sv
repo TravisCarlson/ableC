@@ -57,7 +57,7 @@ top::Stmt ::= db::Expr query::SqliteQuery queryName::Name
       variableDecls(
         [],
         [],
-        abs:sqliteQueryTypeExpr(),
+        abs:sqliteQueryTypeExpr(query.columns),
         foldDeclarator([
           declarator(
             queryName,
@@ -117,16 +117,16 @@ top::Stmt ::= row::Name query::Expr body::Stmt
 {
   local localErrors :: [Message] =
     case query.typerep of
-      abs:sqliteQueryType(_) -> []
-    | errorType() -> []
+      abs:sqliteQueryType(_, _) -> []
+    | errorType()               -> []
     | _ -> [err(query.location, "expected _sqlite_query type in foreach loop")]
     end;
 
-  local columns :: [SqliteColumn] = [
-      sqliteColumn(name("age", location=builtIn()), sqliteInteger()),
-      sqliteColumn(name("gender", location=builtIn()), sqliteVarchar()),
-      sqliteColumn(name("last_name", location=builtIn()), sqliteVarchar())
-    ];
+  local columns :: [SqliteColumn] =
+    case query.typerep of
+      abs:sqliteQueryType(_, cs) -> cs
+    | _ -> []
+    end;
 
   {-- want to forward to:
     sqlite3_reset(${query}.query);

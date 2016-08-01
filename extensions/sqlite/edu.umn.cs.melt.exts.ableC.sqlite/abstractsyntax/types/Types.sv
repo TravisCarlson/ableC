@@ -1,5 +1,6 @@
 grammar edu:umn:cs:melt:exts:ableC:sqlite:abstractsyntax:types;
 
+imports edu:umn:cs:melt:exts:ableC:sqlite:abstractsyntax as abs;
 imports edu:umn:cs:melt:exts:ableC:sqlite:abstractsyntax:tables as tbls;
 import edu:umn:cs:melt:ableC:abstractsyntax;
 import edu:umn:cs:melt:ableC:abstractsyntax:env;
@@ -41,9 +42,9 @@ top::Type ::= qs::[Qualifier] tables::[tbls:SqliteTable]
 }
 
 abstract production sqliteQueryTypeExpr
-top::BaseTypeExpr ::=
+top::BaseTypeExpr ::= columns::[abs:SqliteColumn]
 {
-  top.typerep = sqliteQueryType([]);
+  top.typerep = sqliteQueryType([], columns);
 
   forwards to
     typedefTypeExpr(
@@ -53,7 +54,7 @@ top::BaseTypeExpr ::=
 }
 
 abstract production sqliteQueryType
-top::Type ::= qs::[Qualifier]
+top::Type ::= qs::[Qualifier] columns::[abs:SqliteColumn]
 {
   forwards to
     noncanonicalType(

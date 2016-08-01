@@ -8,15 +8,21 @@ imports edu:umn:cs:melt:ableC:abstractsyntax;
 imports edu:umn:cs:melt:ableC:abstractsyntax:construction;
 imports silver:langutil;
 
-nonterminal SqliteQuery with queryStr, tables;
+nonterminal SqliteQuery with queryStr, tables, columns;
 synthesized attribute queryStr :: String;
 synthesized attribute tables :: [Name];
+synthesized attribute columns :: [SqliteColumn];
 
 abstract production sqliteSelectQuery
 top::SqliteQuery ::= s::SqliteSelectStmt queryStr::String
 {
   top.queryStr = queryStr;
   top.tables = s.tables;
+  top.columns = [
+      sqliteColumn(name("age",       location=builtIn()), sqliteInteger()),
+      sqliteColumn(name("gender",    location=builtIn()), sqliteVarchar()),
+      sqliteColumn(name("last_name", location=builtIn()), sqliteVarchar())
+    ];
 }
 
 nonterminal SqliteSelectStmt with tables;
