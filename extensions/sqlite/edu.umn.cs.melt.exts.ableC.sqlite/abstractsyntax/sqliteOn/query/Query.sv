@@ -8,20 +8,24 @@ imports edu:umn:cs:melt:ableC:abstractsyntax;
 imports edu:umn:cs:melt:ableC:abstractsyntax:construction;
 imports silver:langutil;
 
-nonterminal SqliteQuery with queryStr, usedTables, resultColumns;
+nonterminal SqliteQuery with queryStr, usedTables, usedColumns, selectedTables, resultColumns;
 synthesized attribute queryStr :: String;
 synthesized attribute usedTables :: [Name];
-synthesized attribute resultColumns :: [SqliteColumnName];
+synthesized attribute usedColumns :: [Name];
+synthesized attribute selectedTables :: [Name];
+synthesized attribute resultColumns :: [SqliteResultColumnName];
 
 abstract production sqliteSelectQuery
 top::SqliteQuery ::= s::SqliteSelectStmt queryStr::String
 {
   top.queryStr = queryStr;
   top.usedTables = s.usedTables;
+  top.usedColumns = s.usedColumns;
+  top.selectedTables = s.selectedTables;
   top.resultColumns = s.resultColumns;
 }
 
-nonterminal SqliteSelectStmt with usedTables, resultColumns;
+nonterminal SqliteSelectStmt with usedTables, usedColumns, selectedTables, resultColumns;
 abstract production sqliteSelectStmt
 top::SqliteSelectStmt ::= mw::Maybe<SqliteWith> s::SqliteSelectCore mo::Maybe<SqliteOrder> ml::Maybe<SqliteLimit>
 {
@@ -31,52 +35,71 @@ top::SqliteSelectStmt ::= mw::Maybe<SqliteWith> s::SqliteSelectCore mo::Maybe<Sq
     case mo of just(o) -> o.usedTables | nothing() -> [] end;
   local attribute ltables :: [Name] =
     case ml of just(l) -> l.usedTables | nothing() -> [] end;
+  local attribute wcolumns :: [Name] =
+    case mw of just(w) -> w.usedColumns | nothing() -> [] end;
+  local attribute ocolumns :: [Name] =
+    case mo of just(o) -> o.usedColumns | nothing() -> [] end;
+  local attribute lcolumns :: [Name] =
+    case ml of just(l) -> l.usedColumns | nothing() -> [] end;
 
   top.usedTables = wtables ++ s.usedTables ++ otables ++ ltables;
+  top.usedColumns = wcolumns ++ s.usedColumns ++ ocolumns ++ lcolumns;
+  top.selectedTables = s.selectedTables;
   top.resultColumns = s.resultColumns;
 }
 
-nonterminal SqliteWith with usedTables;
+nonterminal SqliteWith with usedTables, usedColumns;
 abstract production sqliteWith
 top::SqliteWith ::= isRecursive::Boolean cs::SqliteCommonTableExprList
 {
   top.usedTables = cs.usedTables;
+  top.usedColumns = cs.usedColumns;
 }
 
-nonterminal SqliteCommonTableExprList with usedTables;
+nonterminal SqliteCommonTableExprList with usedTables, usedColumns;
 abstract production sqliteCommonTableExprList
 top::SqliteCommonTableExprList ::= c::SqliteCommonTableExpr cs::SqliteCommonTableExprList
 {
   top.usedTables = cs.usedTables ++ c.usedTables;
+  top.usedColumns = cs.usedColumns ++ c.usedColumns;
 }
 abstract production sqliteNilCommonTableExprList
 top::SqliteCommonTableExprList ::=
 {
   top.usedTables = [];
+  top.usedColumns = [];
 }
 
-nonterminal SqliteCommonTableExpr with usedTables;
+nonterminal SqliteCommonTableExpr with usedTables, usedColumns;
 abstract production sqliteCommonTableExpr
 top::SqliteCommonTableExpr ::= tableName::Name s::SqliteSelectStmt mcs::Maybe<SqliteColumnNameList>
 {
-  top.usedTables = [tableName];
+  local attribute cscolumns :: [Name] =
+    case mcs of just(cs) -> cs.usedColumns | nothing() -> [] end;
+
+  top.usedTables = cons(tableName, s.usedTables);
+  top.usedColumns = s.usedColumns ++ cscolumns;
 }
 
-nonterminal SqliteSelectCore with usedTables, resultColumns;
+nonterminal SqliteSelectCore with usedTables, usedColumns, selectedTables, resultColumns;
 abstract production sqliteSelectCoreSelect
 top::SqliteSelectCore ::= s::SqliteSelect
 {
   top.usedTables = s.usedTables;
+  top.usedColumns = s.usedColumns;
+  top.selectedTables = s.selectedTables;
   top.resultColumns = s.resultColumns;
 }
 abstract production sqliteSelectCoreValues
 top::SqliteSelectCore ::= v::SqliteValues
 {
   top.usedTables = v.usedTables;
+  top.usedColumns = v.usedColumns;
+  top.selectedTables = [];
   top.resultColumns = [];
 }
 
-nonterminal SqliteSelect with usedTables, resultColumns;
+nonterminal SqliteSelect with usedTables, usedColumns, selectedTables, resultColumns;
 abstract production sqliteSelect
 top::SqliteSelect ::= md::Maybe<SqliteDistinctOrAll> rs::SqliteResultColumnList mf::Maybe<SqliteFrom>
                       mw::Maybe<SqliteWhere> mg::Maybe<SqliteGroup>
@@ -87,8 +110,16 @@ top::SqliteSelect ::= md::Maybe<SqliteDistinctOrAll> rs::SqliteResultColumnList 
     case mw of just(w) -> w.usedTables | nothing() -> [] end;
   local attribute gtables :: [Name] =
     case mg of just(g) -> g.usedTables | nothing() -> [] end;
+  local attribute fcolumns :: [Name] =
+    case mf of just(f) -> f.usedColumns | nothing() -> [] end;
+  local attribute wcolumns :: [Name] =
+    case mw of just(w) -> w.usedColumns | nothing() -> [] end;
+  local attribute gcolumns :: [Name] =
+    case mg of just(g) -> g.usedColumns | nothing() -> [] end;
 
   top.usedTables = rs.usedTables ++ ftables ++ wtables ++ gtables;
+  top.usedColumns = rs.usedColumns ++ fcolumns ++ wcolumns ++ gcolumns;
+  top.selectedTables = ftables;
   top.resultColumns = reverse(rs.resultColumns);
 }
 
@@ -102,22 +133,24 @@ top::SqliteDistinctOrAll ::=
 {
 }
 
-nonterminal SqliteResultColumnList with usedTables, resultColumns;
+nonterminal SqliteResultColumnList with usedTables, usedColumns, resultColumns;
 abstract production sqliteResultColumnList
 top::SqliteResultColumnList ::= r::SqliteResultColumn rs::SqliteResultColumnList
 {
   top.usedTables = rs.usedTables ++ r.usedTables;
+  top.usedColumns = rs.usedColumns ++ r.usedColumns;
   top.resultColumns = cons(r.resultColumn, rs.resultColumns);
 }
 abstract production sqliteNilResultColumnList
 top::SqliteResultColumnList ::=
 {
   top.usedTables = [];
+  top.usedColumns = [];
   top.resultColumns = [];
 }
 
-nonterminal SqliteResultColumn with usedTables, resultColumn;
-synthesized attribute resultColumn :: SqliteColumnName;
+nonterminal SqliteResultColumn with usedTables, usedColumns, resultColumn;
+synthesized attribute resultColumn :: SqliteResultColumnName;
 abstract production sqliteResultColumnExpr
 top::SqliteResultColumn ::= e::SqliteExpr mc::Maybe<SqliteAsColumnAlias>
 {
@@ -133,17 +166,22 @@ top::SqliteResultColumn ::= e::SqliteExpr mc::Maybe<SqliteAsColumnAlias>
   end;
 
   top.usedTables = e.usedTables;
-  top.resultColumn = sqliteColumnName(colName, columnAlias);
+  top.usedColumns = e.usedColumns;
+  top.resultColumn = sqliteResultColumnName(colName, columnAlias);
 }
 abstract production sqliteResultColumnStar
 top::SqliteResultColumn ::=
 {
   top.usedTables = [];
+  top.usedColumns = [];
+  top.resultColumn = sqliteResultColumnNameStar();
 }
 abstract production sqliteResultColumnTableStar
 top::SqliteResultColumn ::= tableName::Name
 {
   top.usedTables = [tableName];
+  top.usedColumns = [];
+  top.resultColumn = sqliteResultColumnNameTableStar(tableName);
 }
 
 nonterminal SqliteAsColumnAlias with columnAlias;
@@ -154,18 +192,20 @@ top::SqliteAsColumnAlias ::= columnAlias::Name
   top.columnAlias = columnAlias;
 }
 
-nonterminal SqliteFrom with usedTables;
+nonterminal SqliteFrom with usedTables, usedColumns;
 abstract production sqliteFrom
 top::SqliteFrom ::= t::SqliteTableOrSubqueryListOrJoin
 {
   top.usedTables = t.usedTables;
+  top.usedColumns = t.usedColumns;
 }
 
-nonterminal SqliteTableOrSubqueryListOrJoin with usedTables;
+nonterminal SqliteTableOrSubqueryListOrJoin with usedTables, usedColumns;
 abstract production sqliteTableOrSubqueryListOrJoin
 top::SqliteTableOrSubqueryListOrJoin ::= j::SqliteJoinClause
 {
   top.usedTables = j.usedTables;
+  top.usedColumns = j.usedColumns;
 }
 
 nonterminal SqliteTableOrSubquery with table;
@@ -176,7 +216,7 @@ top::SqliteTableOrSubquery ::= tableName::Name
   top.table = tableName;
 }
 
-nonterminal SqliteJoinClause with usedTables;
+nonterminal SqliteJoinClause with usedTables, usedColumns;
 abstract production sqliteJoinClause
 top::SqliteJoinClause ::= t::SqliteTableOrSubquery mj::Maybe<SqliteJoinList>
 {
@@ -185,30 +225,33 @@ top::SqliteJoinClause ::= t::SqliteTableOrSubquery mj::Maybe<SqliteJoinList>
       just(j)   -> cons(t.table, j.usedTables)
     | nothing() -> [t.table]
     end;
+  top.usedColumns = case mj of just(j) -> j.usedColumns | nothing() -> [] end;
 }
 
-nonterminal SqliteJoinList with usedTables;
+nonterminal SqliteJoinList with usedTables, usedColumns;
 abstract production sqliteJoinList
 top::SqliteJoinList ::= j::SqliteJoin js::SqliteJoinList
 {
   top.usedTables = js.usedTables ++ j.usedTables;
+  top.usedColumns = js.usedColumns ++ j.usedColumns;
 }
 
 abstract production sqliteNilJoinList
 top::SqliteJoinList ::=
 {
   top.usedTables = [];
+  top.usedColumns = [];
 }
 
-nonterminal SqliteJoin with usedTables;
+nonterminal SqliteJoin with usedTables, usedColumns;
 abstract production sqliteJoin
 top::SqliteJoin ::= o::SqliteJoinOperator t::SqliteTableOrSubquery mc::Maybe<SqliteJoinConstraint>
 {
   local attribute ctables :: [Name] =
-    case mc of just(c) -> c.usedTables | nothing() -> []
-    end;
+    case mc of just(c) -> c.usedTables | nothing() -> [] end;
 
   top.usedTables = cons(t.table, ctables);
+  top.usedColumns = case mc of just(c) -> c.usedColumns | nothing() -> [] end;
 }
 
 nonterminal SqliteJoinOperator;
@@ -231,99 +274,118 @@ top::SqliteLeftOrInnerOrCross ::=
 {
 }
 
-nonterminal SqliteJoinConstraint with usedTables;
+nonterminal SqliteJoinConstraint with usedTables, usedColumns;
 abstract production sqliteOnConstraint
 top::SqliteJoinConstraint ::= e::SqliteExpr
 {
   top.usedTables = e.usedTables;
+  top.usedColumns = e.usedColumns;
 }
 abstract production sqliteUsingConstraint
 top::SqliteJoinConstraint ::= cs::SqliteColumnNameList
 {
   top.usedTables = [];
+  top.usedColumns = [];
 }
 
-nonterminal SqliteWhere with usedTables;
+nonterminal SqliteWhere with usedTables, usedColumns;
 abstract production sqliteWhere
 top::SqliteWhere ::= e::SqliteExpr
 {
   top.usedTables = e.usedTables;
+  top.usedColumns = e.usedColumns;
 }
 
-nonterminal SqliteGroup with usedTables;
+nonterminal SqliteGroup with usedTables, usedColumns;
 abstract production sqliteGroup
 top::SqliteGroup ::= es::SqliteExprList mh::Maybe<SqliteHaving>
 {
   local attribute htables :: [Name] =
     case mh of just(h) -> h.usedTables | nothing() -> [] end;
+  local attribute hcolumns :: [Name] =
+    case mh of just(h) -> h.usedColumns | nothing() -> [] end;
   top.usedTables = es.usedTables ++ htables;
+  top.usedColumns = es.usedColumns ++ hcolumns;
 }
 
-nonterminal SqliteHaving with usedTables;
+nonterminal SqliteHaving with usedTables, usedColumns;
 abstract production sqliteHaving
 top::SqliteHaving ::= e::SqliteExpr
 {
   top.usedTables = e.usedTables;
+  top.usedColumns = e.usedColumns;
 }
 
-nonterminal SqliteValues with usedTables;
+nonterminal SqliteValues with usedTables, usedColumns;
 abstract production sqliteValues
 top::SqliteValues ::= es::SqliteExprListList
 {
   top.usedTables = es.usedTables;
+  top.usedColumns = es.usedColumns;
 }
 
-nonterminal SqliteExprListList with usedTables;
+nonterminal SqliteExprListList with usedTables, usedColumns;
 abstract production sqliteExprListList
 top::SqliteExprListList ::= e::SqliteExprList es::SqliteExprListList
 {
   top.usedTables = es.usedTables ++ e.usedTables;
+  top.usedColumns = es.usedColumns ++ e.usedColumns;
 }
 abstract production sqliteNilExprListList
 top::SqliteExprListList ::=
 {
   top.usedTables = [];
+  top.usedColumns = [];
 }
 
-nonterminal SqliteExprList with usedTables;
+nonterminal SqliteExprList with usedTables, usedColumns;
 abstract production sqliteExprList
 top::SqliteExprList ::= e::SqliteExpr es::SqliteExprList
 {
   top.usedTables = es.usedTables ++ e.usedTables;
+  top.usedColumns = es.usedColumns ++ e.usedColumns;
 }
 abstract production sqliteNilExprList
 top::SqliteExprList ::=
 {
   top.usedTables = [];
+  top.usedColumns = [];
 }
 
-nonterminal SqliteExpr with usedTables;
+nonterminal SqliteExpr with usedTables, usedColumns;
 abstract production sqliteLiteralValueExpr
 top::SqliteExpr ::=
 {
   top.usedTables = [];
+  top.usedColumns = [];
 }
 abstract production sqliteSchemaTableColumnNameExpr
 top::SqliteExpr ::= n::SqliteSchemaTableColumnName
 {
   top.usedTables = n.usedTables;
+  top.usedColumns = [n.colName];
 }
 abstract production sqliteBinaryExpr
 top::SqliteExpr ::= e1::SqliteExpr e2::SqliteExpr
 {
   top.usedTables = e1.usedTables ++ e2.usedTables;
+  top.usedColumns = e1.usedColumns ++ e2.usedColumns;
 }
 abstract production sqliteUnaryExpr
 top::SqliteExpr ::= e::SqliteExpr
 {
   top.usedTables = e.usedTables;
+  top.usedColumns = e.usedColumns;
 }
 abstract production sqliteFunctionCallExpr
 top::SqliteExpr ::= functionName::Name ma::Maybe<SqliteFunctionArgs>
 {
   local attribute atables :: [Name] =
     case ma of just(a) -> a.usedTables | nothing() -> [] end;
+  local attribute acolumns :: [Name] =
+    case ma of just(a) -> a.usedColumns | nothing() -> [] end;
   top.usedTables = atables;
+  top.usedColumns = acolumns;
 }
 
 nonterminal SqliteSchemaTableColumnName with usedTables, colName;
@@ -347,52 +409,60 @@ top::SqliteSchemaTableColumnName ::= colName::Name
   top.colName = colName;
 }
 
-nonterminal SqliteFunctionArgs with usedTables;
+nonterminal SqliteFunctionArgs with usedTables, usedColumns;
 abstract production sqliteFunctionArgs
 top::SqliteFunctionArgs ::= isDistinct::Boolean es::SqliteExprList
 {
   top.usedTables = es.usedTables;
+  top.usedColumns = es.usedColumns;
 }
 abstract production sqliteFunctionArgsStar
 top::SqliteFunctionArgs ::=
 {
   top.usedTables = [];
+  top.usedColumns = [];
 }
 
-nonterminal SqliteColumnNameList;
+nonterminal SqliteColumnNameList with usedColumns;
 abstract production sqliteColumnNameList
 top::SqliteColumnNameList ::= c::Name cs::SqliteColumnNameList
 {
+  top.usedColumns = cons(c, cs.usedColumns);
 }
 abstract production sqliteNilColumnNameList
 top::SqliteColumnNameList ::=
 {
+  top.usedColumns = [];
 }
 
-nonterminal SqliteOrder with usedTables;
+nonterminal SqliteOrder with usedTables, usedColumns;
 abstract production sqliteOrder
 top::SqliteOrder ::= os::SqliteOrderingTermList
 {
   top.usedTables = os.usedTables;
+  top.usedColumns = os.usedColumns;
 }
 
-nonterminal SqliteOrderingTermList with usedTables;
+nonterminal SqliteOrderingTermList with usedTables, usedColumns;
 abstract production sqliteOrderingTermList
 top::SqliteOrderingTermList ::= o::SqliteOrderingTerm os::SqliteOrderingTermList
 {
   top.usedTables = o.usedTables ++ os.usedTables;
+  top.usedColumns = o.usedColumns ++ os.usedColumns;
 }
 abstract production sqliteNilOrderingTermList
 top::SqliteOrderingTermList ::=
 {
   top.usedTables = [];
+  top.usedColumns = [];
 }
 
-nonterminal SqliteOrderingTerm with usedTables;
+nonterminal SqliteOrderingTerm with usedTables, usedColumns;
 abstract production sqliteOrderingTerm
 top::SqliteOrderingTerm ::= e::SqliteExpr mc::Maybe<SqliteCollate>
 {
   top.usedTables = e.usedTables;
+  top.usedColumns = e.usedColumns;
 }
 
 nonterminal SqliteCollate;
@@ -401,24 +471,28 @@ top::SqliteCollate ::= collationName::Name
 {
 }
 
-nonterminal SqliteLimit with usedTables;
+nonterminal SqliteLimit with usedTables, usedColumns;
 abstract production sqliteLimit
 top::SqliteLimit ::= e::SqliteExpr mo::Maybe<SqliteOffsetExpr>
 {
   local attribute otables :: [Name] =
     case mo of just(o) -> o.usedTables | nothing() -> [] end;
+  local attribute ocolumns :: [Name] =
+    case mo of just(o) -> o.usedColumns | nothing() -> [] end;
   top.usedTables = e.usedTables ++ otables;
+  top.usedColumns = e.usedColumns ++ ocolumns;
 }
 
-nonterminal SqliteOffsetExpr with usedTables;
+nonterminal SqliteOffsetExpr with usedTables, usedColumns;
 abstract production sqliteOffsetExpr
 top::SqliteOffsetExpr ::= e::SqliteExpr
 {
   top.usedTables = e.usedTables;
+  top.usedColumns = e.usedColumns;
 }
 
 function checkTablesExist
-[Message] ::= expectedTables::[SqliteTable] foundTables::[Name]
+[Message] ::= foundTables::[Name] expectedTables::[SqliteTable]
 {
   local foundTable :: Name = head(foundTables);
   local localErrors :: [Message] =
@@ -426,36 +500,118 @@ function checkTablesExist
     else [err(foundTable.location, "no such table: " ++ foundTable.name)];
 
   return if null(foundTables) then []
-         else localErrors ++ checkTablesExist(expectedTables, tail(foundTables));
+         else localErrors ++ checkTablesExist(tail(foundTables), expectedTables);
 }
 
 function tableExistsIn
 Boolean ::= tables::[SqliteTable] table::Name
 {
   return if null(tables) then false
-         else (head(tables).name.name == table.name) || tableExistsIn(tail(tables), table);
+         else (head(tables).tableName.name == table.name) || tableExistsIn(tail(tables), table);
+}
+
+function filterSelectedTables
+[SqliteTable] ::= tables::[SqliteTable] selectedTables::[Name]
+{
+  local attribute table :: SqliteTable = head(tables);
+  local attribute rest :: [SqliteTable] =
+    filterSelectedTables(tail(tables), selectedTables);
+
+  return if null(tables)
+         then []
+         else if containsTableName(table, selectedTables)
+              then cons(table, rest)
+              else rest;
+}
+
+function containsTableName
+Boolean ::= t::SqliteTable names::[Name]
+{
+  return !null(names) &&
+    (t.tableName.name == head(names).name || containsTableName(t, tail(names)));
+}
+
+function checkColumnsExist
+[Message] ::= usedColumns::[Name] tables::[SqliteTable]
+{
+  local attribute unknownColumns :: [Name] =
+    filterUnknownColumns(usedColumns, tables);
+  return map(makeUnknownColumnError, unknownColumns);
+}
+
+function makeUnknownColumnError
+Message ::= col::Name
+{
+  return err(col.location, "no such column: " ++ col.name);
+}
+
+function filterUnknownColumns
+[Name] ::= usedColumns::[Name] tables::[SqliteTable]
+{
+  local attribute col :: Name = head(usedColumns);
+  local attribute rest :: [Name] =
+    filterUnknownColumns(tail(usedColumns), tables);
+
+  return if null(usedColumns)
+         then []
+         else if tablesContainColumn(tables, col)
+              then rest
+              else cons(col, rest);
+}
+
+function tablesContainColumn
+Boolean ::= tables::[SqliteTable] col::Name
+{
+  return !null(tables) &&
+    (containsColumn(head(tables).columns, col)
+      || tablesContainColumn(tail(tables), col));
+}
+
+function containsColumn
+Boolean ::= columns::[SqliteColumn] col::Name
+{
+  return !null(columns) &&
+    (head(columns).columnName.name == col.name || containsColumn(tail(columns), col));
 }
 
 function makeResultColumns
-Pair<[SqliteColumn] [Message]> ::= columnNames::[SqliteColumnName] tables::[SqliteTable]
+[SqliteColumn] ::= columnNames::[SqliteResultColumnName] tables::[SqliteTable]
 {
-  local attribute rest :: Pair<[SqliteColumn] [Message]> =
+  local attribute rest :: [SqliteColumn] =
     makeResultColumns(tail(columnNames), tables);
-  return if null(columnNames) then pair([], [])
+  return if null(columnNames) then []
          else
            case makeResultColumn(head(columnNames), tables) of
-             pair(just(c), errs)   -> pair(cons(c, rest.fst), errs ++ rest.snd)
-           | pair(nothing(), errs) -> pair(rest.fst, errs ++ rest.snd)
+             just(c)   -> cons(c, rest)
+           | nothing() -> rest
            end;
 }
 
 function makeResultColumn
-Pair<Maybe<SqliteColumn> [Message]> ::= columnName::SqliteColumnName tables::[SqliteTable]
+Maybe<SqliteColumn> ::= columnName::SqliteResultColumnName tables::[SqliteTable]
 {
   local attribute n :: Name =
-    case columnName.mName of
-      just(n2)  -> n2
-    | nothing() -> error("derefencing column name that does not exist")
+    case columnName of
+      sqliteResultColumnName(mName, alias)       ->
+        case mName of
+          just(n2)  -> n2
+        | nothing() -> error("derefencing column name that does not exist")
+        end
+    | sqliteResultColumnNameStar()               -> error("SELECT * not implemented yet")
+    | sqliteResultColumnNameTableStar(tableName) -> error("SELECT table.* not implemented yet")
+    end;
+  local attribute a :: Name =
+    case columnName of
+      sqliteResultColumnName(mName, alias)       ->
+        case alias of
+          just(a2)  -> a2
+        | nothing() -> case mName of
+                         just(n2)  -> n2
+                       | nothing() -> error("derefencing column name that does not exist")
+                       end
+        end
+    | sqliteResultColumnNameStar()               -> error("SELECT * not implemented yet")
+    | sqliteResultColumnNameTableStar(tableName) -> error("SELECT table.* not implemented yet")
     end;
 
   local attribute foundType :: Maybe<SqliteColumnType> =
@@ -463,14 +619,15 @@ Pair<Maybe<SqliteColumn> [Message]> ::= columnName::SqliteColumnName tables::[Sq
 
   return
     case foundType of
-      just(t)   -> pair(just(sqliteColumn(columnName, t)), [])
-    | nothing() -> pair(nothing(), [err(n.location, "no such column: " ++ n.name)])
+      just(t)   -> just(sqliteColumn(a, t))
+    | nothing() -> nothing()
     end;
 }
 
 function lookupColumnTypeInTables
 Maybe<SqliteColumnType> ::= n::Name tables::[SqliteTable]
 {
+--  return just(sqliteInteger());
   return
     if null(tables) then nothing()
     else case lookupColumnTypeInColumns(n, head(tables).columns) of
@@ -483,16 +640,11 @@ function lookupColumnTypeInColumns
 Maybe<SqliteColumnType> ::= n::Name columns::[SqliteColumn]
 {
   local attribute nextColumn :: SqliteColumn = head(columns);
-  local attribute lookupRest :: Maybe<SqliteColumnType> =
-    lookupColumnTypeInColumns(n, tail(columns));
 
   return
     if null(columns) then nothing()
-    else case nextColumn.columnName.mName of
-           just(name(n2)) -> if n.name == n2
-                             then just(nextColumn.typ)
-                             else lookupRest
-         | nothing()      -> lookupRest
-         end;
+    else if n.name == nextColumn.columnName.name
+         then just(nextColumn.typ)
+         else lookupColumnTypeInColumns(n, tail(columns));
 }
 

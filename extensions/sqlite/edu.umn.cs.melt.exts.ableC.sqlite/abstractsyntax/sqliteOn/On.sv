@@ -33,24 +33,40 @@ top::Stmt ::= db::Expr query::SqliteQuery queryName::Name
 {
   local tableErrors :: [Message] =
     case db.typerep of
-      abs:sqliteDbType(_, tables) -> checkTablesExist(tables, query.usedTables)
+      abs:sqliteDbType(_, tables) -> checkTablesExist(query.usedTables, tables)
     | errorType() -> []
     | _ -> [err(db.location, "expected _sqlite_db type")]
     end;
 
-  local tables :: [SqliteTable] =
+  local dbTables :: [SqliteTable] =
     case db.typerep of
-      abs:sqliteDbType(_, tables) -> tables
+      abs:sqliteDbType(_, dbTables) -> dbTables
     | _                           -> []
     end;
 
-  local resultColumnsPair :: Pair<[SqliteColumn] [Message]> =
-    makeResultColumns(query.resultColumns, tables);
-  local resultColumns :: [SqliteColumn] = resultColumnsPair.fst;
-  local columnErrors :: [Message] = resultColumnsPair.snd;
+  local selectedTables :: [SqliteTable] =
+    filterSelectedTables(dbTables, query.selectedTables);
+
+  local selectedTablesWithAliases :: [SqliteTable] =
+    addAliasColumns(selectedTables, query.resultColumns);
+
+  local columnErrors :: [Message] =
+    case db.typerep of
+      abs:sqliteDbType(_, dbTables) ->
+        checkColumnsExist(query.usedColumns, selectedTablesWithAliases)
+    | errorType() -> []
+    | _ -> [err(db.location, "expected _sqlite_db type")]
+    end;
 
   local localErrors :: [Message] =
     tableErrors ++ columnErrors;
+
+--  local resultColumnsPair :: Pair<[SqliteColumn] [Message]> =
+--    makeResultColumns(query.resultColumns, dbTables);
+--  local resultColumns :: [SqliteColumn] = resultColumnsPair.fst;
+--  local columnErrors :: [Message] = resultColumnsPair.snd;
+  local resultColumns :: [SqliteColumn] =
+    makeResultColumns(query.resultColumns, dbTables);
 
   {-- want to forward to:
     _sqlite_query ${queryName} = _new_sqlite_query();
@@ -325,22 +341,13 @@ StructItem ::= col::SqliteColumn
       sqliteVarchar() -> pointerTypeExpr([], baseTypeExpr())
     | sqliteInteger() -> baseTypeExpr()
     end;
-  local attribute n :: Name =
-    case col.columnName.alias of
-      just(n)   -> n
-    | nothing() -> case col.columnName.mName of
-                     just(n)   -> n
-                   -- FIXME: this should be an error Message
-                   | nothing() -> name("error: expression not aliased", location=builtIn())
-                   end
-    end;
 
   return
       structItem(
         [],
         typeExpr,
         foldStructDeclarator([
-          structField(n, mod, [])
+          structField(col.columnName, mod, [])
         ])
       );
 }

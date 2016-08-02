@@ -53,11 +53,11 @@ nonterminal SqliteColumnList_c with ast<abs:SqliteColumnList>, location;
 concrete productions top::SqliteColumnList_c
 | cs::SqliteColumnList_c ',' c::SqliteColumn_c
   {
-    top.ast = abs:sqliteColumnList(c.ast, cs.ast);
+    top.ast = abs:sqliteConsColumnList(c.ast, cs.ast);
   }
 | c::SqliteColumn_c
   {
-    top.ast = abs:sqliteColumnList(c.ast, abs:sqliteNilColumnList());
+    top.ast = abs:sqliteConsColumnList(c.ast, abs:sqliteNilColumnList());
   }
 |
   {
@@ -68,11 +68,7 @@ nonterminal SqliteColumn_c with ast<abs:SqliteColumn>, location;
 concrete productions top::SqliteColumn_c
 | n::cnc:Identifier_t t::SqliteColumnType_c
   {
-    top.ast =
-      abs:sqliteColumn(
-        abs:sqliteColumnName(just(abs:fromId(n)), nothing()),
-        t.ast
-      );
+    top.ast = abs:sqliteColumn(abs:fromId(n), t.ast);
   }
 
 nonterminal SqliteColumnType_c with ast<abs:SqliteColumnType>, location;
