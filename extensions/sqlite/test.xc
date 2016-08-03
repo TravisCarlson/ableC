@@ -19,7 +19,6 @@ int main(void)
     FROM     person JOIN details
                       ON person.person_id = details.person_id
     WHERE    age > ${limit}
-//    WHERE    age > 18
     ORDER BY surname DESC
   } as people;
 

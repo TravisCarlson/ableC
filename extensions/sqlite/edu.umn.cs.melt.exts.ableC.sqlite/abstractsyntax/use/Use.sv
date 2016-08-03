@@ -7,14 +7,14 @@ imports edu:umn:cs:melt:ableC:abstractsyntax:construction;
 imports edu:umn:cs:melt:exts:ableC:sqlite:abstractsyntax:tables;
 
 abstract production sqliteUse
-top::Stmt ::= dbFilename::String dbName::Name tableList::SqliteTableList
+top::Stmt ::= dbFilename::Expr dbName::Name tableList::SqliteTableList
 {
   -- _new_sqlite_db(${dbFilename});
   local callNew :: Expr =
     directCallExpr(
       name("_new_sqlite_db", location=builtIn()),
       foldExpr([
-        stringLiteral(dbFilename, location=builtIn())
+        dbFilename
       ]),
       location=builtIn()
     );
