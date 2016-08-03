@@ -78,6 +78,7 @@ terminal SqliteUnaryMinus_t '-' precedence = 26;
 terminal SqliteUnaryPlus_t '+' precedence = 26;
 terminal SqliteUnaryCollate_t '~' precedence = 26;
 terminal SqliteNot_t 'NOT' precedence = 26, lexer classes {SqliteKeyword};
+terminal SqliteDollar_t '$' lexer classes {SqliteKeyword};
 
 nonterminal SqliteQuery_c with location, ast<abs:SqliteQuery>;
 concrete productions top::SqliteQuery_c
@@ -725,6 +726,11 @@ concrete productions top::SqliteExpr_c
 --| SqliteRaiseFunction_c
 --  {
 --  }
+|  '$' '{' e::cnc:Expr_c '}'
+  {
+    top.ast = abs:sqliteCExpr(e.ast);
+    top.unparse = "?";
+  }
 
 nonterminal SqliteSchemaTableColumnName_c with location, ast<abs:SqliteSchemaTableColumnName>, unparse;
 concrete productions top::SqliteSchemaTableColumnName_c

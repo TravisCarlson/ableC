@@ -18,8 +18,8 @@ int main(void)
     SELECT   age, gender, last_name AS surname
     FROM     person JOIN details
                       ON person.person_id = details.person_id
-//    WHERE    age > limit
-    WHERE    age > 18
+    WHERE    age > ${limit}
+//    WHERE    age > 18
     ORDER BY surname DESC
   } as people;
 

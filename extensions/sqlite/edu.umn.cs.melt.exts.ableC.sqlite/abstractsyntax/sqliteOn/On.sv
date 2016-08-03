@@ -71,6 +71,10 @@ top::Stmt ::= db::Expr query::SqliteQuery queryName::Name
   {-- want to forward to:
     _sqlite_query ${queryName} = _new_sqlite_query();
     sqlite3_prepare(${db}.db, _query, sizeof(_query), &${queryName}.query, NULL);
+    // for each expression parameter:
+      sqlite3_bind_int(${queryName}, i, <expr>);
+      OR
+      sqlite3_bind_text(${queryName}, i, <expr>, -1, NULL);
   -}
 
   -- _new_sqlite_query();
@@ -136,7 +140,8 @@ top::Stmt ::= db::Expr query::SqliteQuery queryName::Name
   local fullStmt :: Stmt =
     foldStmt([
       queryDecl,
-      exprStmt(mkErrorCheck(localErrors, callPrepare))
+      exprStmt(mkErrorCheck(localErrors, callPrepare)),
+      makeBinds(query, queryName)
     ]);
 
   forwards to fullStmt;
@@ -350,6 +355,52 @@ StructItem ::= col::SqliteColumn
           structField(col.columnName, mod, [])
         ])
       );
+}
+
+function makeBinds
+Stmt ::= query::SqliteQuery queryName::Name
+{
+  {-- want to forward to:
+    // for each expression parameter:
+      sqlite3_bind_int(${queryName}, i, <expr>);
+      OR
+      sqlite3_bind_text(${queryName}, i, <expr>, -1, NULL);
+  -}
+  return
+    if   null(query.exprParams)
+    then nullStmt()
+    else exprStmt(makeBind(head(query.exprParams), queryName, 1));
+}
+
+function makeBind
+Expr ::= exprParam::Expr queryName::Name i::Integer
+{
+  return
+    directCallExpr(
+      name("sqlite3_bind_int", location=builtIn()),
+      foldExpr([
+        memberExpr(
+          declRefExpr(queryName, location=builtIn()),
+          true,
+          name("query", location=builtIn()),
+          location=builtIn()
+        ),
+        realConstant(
+          integerConstant(toString(i), false, noIntSuffix(), location=builtIn()),
+          location=builtIn()
+        ),
+        exprParam
+--        realConstant(
+--          integerConstant("-1", false, noIntSuffix(), location=builtIn()),
+--          location=builtIn()
+--        ),
+--        realConstant(
+--          integerConstant("0", false, noIntSuffix(), location=builtIn()),
+--          location=builtIn()
+--        )
+      ]),
+      location=builtIn()
+    );
 }
 
 -- TODO: can this be used from ableC:abstractsyntax instead of copied?
