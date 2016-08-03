@@ -102,13 +102,13 @@ top::Stmt ::= db::Expr query::SqliteQuery queryName::Name
   -- sqlite3_prepare(${db}.db, _query, sizeof(_query), &${queryName}.query, NULL);
   local callPrepare :: Expr =
     directCallExpr(
-      name("sqlite3_prepare", location=builtIn()),
+      name("sqlite3_prepare_v2", location=builtIn()),
       foldExpr([
         memberExpr(db, true, name("db", location=builtIn()), location=builtIn()),
         stringLiteral(quote(query.queryStr), location=builtIn()),
         realConstant(
           integerConstant(
-            toString(length(query.queryStr)),
+            toString(length(query.queryStr)+1),
             false,
             noIntSuffix(),
             location=builtIn()
