@@ -54,7 +54,7 @@ top::SqliteColumn ::= n::Name t::SqliteColumnType
 
 nonterminal SqliteResultColumnName;
 abstract production sqliteResultColumnName
-top::SqliteResultColumnName ::= mName::Maybe<Name> alias::Maybe<Name>
+top::SqliteResultColumnName ::= mName::Maybe<Name> mAlias::Maybe<Name> mTableName::Maybe<Name>
 {
 }
 abstract production sqliteResultColumnNameStar
@@ -92,27 +92,38 @@ function addAliasColumn
 [SqliteTable] ::= tables::[SqliteTable] aliasColumn::SqliteResultColumnName
 {
   return case aliasColumn of
-           sqliteResultColumnName(mName, alias)       ->
+           sqliteResultColumnName(mName, alias, mTableName) ->
              case mName of
                just(n)   -> case alias of
-                              just(a)   -> aliasTablesColumn(tables, n, a)
+                              just(a)   -> aliasTablesColumn(tables, n, a, mTableName)
                             | nothing() -> tables
                             end
              | nothing() -> tables
              end
-         | sqliteResultColumnNameStar()               -> tables
-         | sqliteResultColumnNameTableStar(tableName) -> tables
+         | sqliteResultColumnNameStar()                     -> tables
+         | sqliteResultColumnNameTableStar(tableName)       -> tables
          end;
 }
 
 function aliasTablesColumn
-[SqliteTable] ::= tables::[SqliteTable] n::Name a::Name
+[SqliteTable] ::= tables::[SqliteTable] n::Name a::Name mTableName::Maybe<Name>
 {
+  local attribute nextTable :: SqliteTable = head(tables);
+  local attribute doAliasNextTable :: Boolean =
+    case mTableName of
+      just(tableName) -> nextTable.tableName.name == tableName.name
+    | nothing()       -> true
+    end;
+  local attribute nextTableAliased :: SqliteTable =
+    if doAliasNextTable
+    then aliasTableColumn(nextTable, n, a)
+    else nextTable;
+
   return if null(tables) then []
          else
            cons(
-             aliasTableColumn(head(tables), n, a),
-             aliasTablesColumn(tail(tables), n, a)
+             nextTableAliased,
+             aliasTablesColumn(tail(tables), n, a, mTableName)
            );
 }
 
