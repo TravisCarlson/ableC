@@ -20,6 +20,8 @@ int main(void)
     printf("%d %s %s\n", person.person_id, person.first_name, person.last_name);
   }
 
+  finalize(all_people);
+
   int limit = 18;
   const char except_surname[] = "Adams";
 
@@ -34,6 +36,8 @@ int main(void)
   foreach (person : selected_people) {
     printf("%s %d %s\n", person.surname, person.age, person.gender);
   }
+
+  finalize(selected_people);
 
   on db exit;
 
