@@ -347,14 +347,14 @@ Init ::= col::SqliteColumn query::Expr colIndex::Integer
     );
 }
 
-function makeBinds
-Stmt ::= query::SqliteQuery queryName::Name
+abstract production makeBinds
+top::Stmt ::= query::SqliteQuery queryName::Name
 {
-  return makeBindsHelper(query.exprParams, queryName, 1);
+  forwards to makeBindsHelper(query.exprParams, queryName, 1);
 }
 
-function makeBindsHelper
-Stmt ::= exprParams::[Expr] queryName::Name i::Integer
+abstract production makeBindsHelper
+top::Stmt ::= exprParams::[Expr] queryName::Name i::Integer
 {
   {-- want to forward to:
     // for each expression parameter:
@@ -362,53 +362,52 @@ Stmt ::= exprParams::[Expr] queryName::Name i::Integer
       OR
       sqlite3_bind_text(${queryName}, i, <expr>, -1, NULL);
   -}
-  return
+  forwards to
     if   null(exprParams)
     then nullStmt()
     else seqStmt(
            exprStmt(
-             makeBind(head(exprParams), queryName, i)
+             makeBind(head(exprParams), queryName, i, location=builtIn())
            ),
            makeBindsHelper(tail(exprParams), queryName, i+1)
          );
 }
 
-function makeBind
-Expr ::= exprParam::Expr queryName::Name i::Integer
+abstract production makeBind
+top::Expr ::= exprParam::Expr queryName::Name i::Integer
 {
-  return if isTextType(exprParam.typerep)
-         then makeBindText(exprParam, queryName, i)
-         else makeBindInt(exprParam, queryName, i);
+  forwards to
+    if isTextType(exprParam.typerep)
+    then makeBindText(exprParam, queryName, i, location=builtIn())
+    else makeBindInt(exprParam, queryName, i, location=builtIn());
 }
 
 function isTextType
 Boolean ::= t::Type
 {
-  return false;
-  -- FIXME: detecting type is a runtime error because inherited env attr not provided
---  return
---    case t of
---      pointerType(_, builtinType(_, t2))     ->
---        case t2 of
---          signedType(charType())   -> true
---        | unsignedType(charType()) -> true
---        | _                        -> false
---        end
---    | arrayType(builtinType(_, t2), _, _, _) ->
---        case t2 of
---          signedType(charType())   -> true
---        | unsignedType(charType()) -> true
---        | _                        -> false
---        end
---    | _                                      ->
---        false
---    end;
+  return
+    case t of
+      pointerType(_, builtinType(_, t2))     ->
+        case t2 of
+          signedType(charType())   -> true
+        | unsignedType(charType()) -> true
+        | _                        -> false
+        end
+    | arrayType(builtinType(_, t2), _, _, _) ->
+        case t2 of
+          signedType(charType())   -> true
+        | unsignedType(charType()) -> true
+        | _                        -> false
+        end
+    | _                                      ->
+        false
+    end;
 }
 
-function makeBindText
-Expr ::= exprParam::Expr queryName::Name i::Integer
+abstract production makeBindText
+top::Expr ::= exprParam::Expr queryName::Name i::Integer
 {
-  return
+  forwards to
     directCallExpr(
       name("sqlite3_bind_text", location=builtIn()),
       foldExpr([
@@ -427,10 +426,10 @@ Expr ::= exprParam::Expr queryName::Name i::Integer
     );
 }
 
-function makeBindInt
-Expr ::= exprParam::Expr queryName::Name i::Integer
+abstract production makeBindInt
+top::Expr ::= exprParam::Expr queryName::Name i::Integer
 {
-  return
+  forwards to
     directCallExpr(
       name("sqlite3_bind_int", location=builtIn()),
       foldExpr([
