@@ -425,6 +425,7 @@ concrete productions top::SqliteJoinConstraint_c
 |
   {
     top.ast = nothing();
+    top.unparse = "";
   }
 
 nonterminal SqliteOptWhere_c with location, ast<Maybe<abs:SqliteWhere>>, unparse;

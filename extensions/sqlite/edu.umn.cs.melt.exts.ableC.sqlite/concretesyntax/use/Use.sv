@@ -28,18 +28,18 @@ concrete productions top::SqliteOptWithTables_c
   }
 |
   {
-    top.ast = abs:sqliteNilTableList();
+    top.ast = abs:sqliteNilTable();
   }
 
 nonterminal SqliteTableList_c with ast<abs:SqliteTableList>, location;
 concrete productions top::SqliteTableList_c
 | ts::SqliteTableList_c ',' t::SqliteTable_c
   {
-    top.ast = abs:sqliteTableList(t.ast, ts.ast);
+    top.ast = abs:sqliteConsTable(t.ast, ts.ast);
   }
 | t::SqliteTable_c
   {
-    top.ast = abs:sqliteTableList(t.ast, abs:sqliteNilTableList());
+    top.ast = abs:sqliteConsTable(t.ast, abs:sqliteNilTable());
   }
 
 nonterminal SqliteTable_c with ast<abs:SqliteTable>, location;
@@ -53,15 +53,15 @@ nonterminal SqliteColumnList_c with ast<abs:SqliteColumnList>, location;
 concrete productions top::SqliteColumnList_c
 | cs::SqliteColumnList_c ',' c::SqliteColumn_c
   {
-    top.ast = abs:sqliteConsColumnList(c.ast, cs.ast);
+    top.ast = abs:sqliteConsColumn(c.ast, cs.ast);
   }
 | c::SqliteColumn_c
   {
-    top.ast = abs:sqliteConsColumnList(c.ast, abs:sqliteNilColumnList());
+    top.ast = abs:sqliteConsColumn(c.ast, abs:sqliteNilColumn());
   }
 |
   {
-    top.ast = abs:sqliteNilColumnList();
+    top.ast = abs:sqliteNilColumn();
   }
 
 nonterminal SqliteColumn_c with ast<abs:SqliteColumn>, location;

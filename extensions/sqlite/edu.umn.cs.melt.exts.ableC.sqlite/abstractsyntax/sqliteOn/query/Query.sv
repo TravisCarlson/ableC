@@ -142,7 +142,7 @@ top::SqliteSelect ::= md::Maybe<SqliteDistinctOrAll> rs::SqliteResultColumnList 
   top.usedTables = rs.usedTables ++ ftables ++ wtables ++ gtables;
   top.usedColumns = rs.usedColumns ++ fcolumns ++ wcolumns ++ gcolumns;
   top.selectedTables = ftables;
-  top.resultColumns = reverse(rs.resultColumns);
+  top.resultColumns = rs.resultColumns;
   top.exprParams = rs.exprParams ++ fExprParams ++ wExprParams ++ gExprParams;
 }
 
@@ -723,8 +723,67 @@ Boolean ::= columns::[SqliteColumn] col::SqliteResultColumnName
 function makeResultColumns
 [SqliteColumn] ::= columnNames::[SqliteResultColumnName] tables::[SqliteTable]
 {
+  return reverse(makeResultColumnsHelper(expandColumnStars(columnNames, tables), tables));
+}
+
+function expandColumnStars
+[SqliteResultColumnName] ::= columnNames::[SqliteResultColumnName] tables::[SqliteTable]
+{
+  local attribute nextColumnName :: SqliteResultColumnName =
+    head(columnNames);
+  local attribute rest :: [SqliteResultColumnName] =
+    expandColumnStars(tail(columnNames), tables);
+  return
+    if null(columnNames) then []
+    else
+      case nextColumnName of
+        sqliteResultColumnName(_, _, _)            ->
+          cons(nextColumnName, rest)
+      | sqliteResultColumnNameStar()               ->
+          expandColumnStar(tables, nothing()) ++ rest
+      | sqliteResultColumnNameTableStar(tableName) ->
+          expandColumnStar(tables, just(tableName)) ++ rest
+      end;
+}
+
+function expandColumnStar
+[SqliteResultColumnName] ::= tables::[SqliteTable] mTableName::Maybe<Name>
+{
+  local attribute nextTable :: SqliteTable = head(tables);
+  local attribute doExpandNextTable :: Boolean =
+    case mTableName of
+      just(tableName) -> nextTable.tableName.name == tableName.name
+    | nothing()       -> true
+    end;
+  local attribute rest :: [SqliteResultColumnName] =
+    expandColumnStar(tail(tables), mTableName);
+
+  return
+    if null(tables) then []
+    else if doExpandNextTable
+         then extractColumnNames(nextTable.columns, nextTable.tableName) ++ rest
+         else rest;
+}
+
+function extractColumnNames
+[SqliteResultColumnName] ::= columns::[SqliteColumn] tableName::Name
+{
+  return
+    if null(columns) then []
+    else
+      cons(
+        sqliteResultColumnName(
+          just(head(columns).columnName), nothing(), just(tableName)
+        ),
+        extractColumnNames(tail(columns), tableName)
+      );
+}
+
+function makeResultColumnsHelper
+[SqliteColumn] ::= columnNames::[SqliteResultColumnName] tables::[SqliteTable]
+{
   local attribute rest :: [SqliteColumn] =
-    makeResultColumns(tail(columnNames), tables);
+    makeResultColumnsHelper(tail(columnNames), tables);
   return if null(columnNames) then []
          else
            case makeResultColumn(head(columnNames), tables) of
@@ -743,8 +802,8 @@ Maybe<SqliteColumn> ::= columnName::SqliteResultColumnName tables::[SqliteTable]
           just(n2)  -> n2
         | nothing() -> error("derefencing column name that does not exist")
         end
-    | sqliteResultColumnNameStar()                     -> error("SELECT * not implemented yet")
-    | sqliteResultColumnNameTableStar(tableName)       -> error("SELECT table.* not implemented yet")
+    | _                                                ->
+        error("makeResultColumn() passed an unexpanded star")
     end;
   local attribute a :: Name =
     case columnName of
@@ -756,14 +815,14 @@ Maybe<SqliteColumn> ::= columnName::SqliteResultColumnName tables::[SqliteTable]
                        | nothing() -> error("derefencing column name that does not exist")
                        end
         end
-    | sqliteResultColumnNameStar()                     -> error("SELECT * not implemented yet")
-    | sqliteResultColumnNameTableStar(tableName)       -> error("SELECT table.* not implemented yet")
+    | _                                                ->
+        error("makeResultColumn() passed an unexpanded star")
     end;
   local attribute mTableName :: Maybe<Name> =
     case columnName of
       sqliteResultColumnName(_, _, mTableName) -> mTableName
-    | sqliteResultColumnNameStar()             -> error("SELECT * not implemented yet")
-    | sqliteResultColumnNameTableStar(_)       -> error("SELECT table.* not implemented yet")
+    | _                                        ->
+        error("makeResultColumn() passed an unexpanded star")
     end;
 
   local attribute foundType :: Maybe<SqliteColumnType> =

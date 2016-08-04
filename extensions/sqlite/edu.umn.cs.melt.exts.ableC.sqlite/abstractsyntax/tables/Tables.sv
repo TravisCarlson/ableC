@@ -4,12 +4,12 @@ imports edu:umn:cs:melt:ableC:abstractsyntax;
 
 nonterminal SqliteTableList with tables;
 synthesized attribute tables :: [SqliteTable];
-abstract production sqliteTableList
+abstract production sqliteConsTable
 top::SqliteTableList ::= t::SqliteTable ts::SqliteTableList
 {
   top.tables = cons(t, ts.tables);
 }
-abstract production sqliteNilTableList
+abstract production sqliteNilTable
 top::SqliteTableList ::=
 {
   top.tables = nil();
@@ -31,12 +31,12 @@ top::SqliteColumnList ::= cs::[SqliteColumn]
 {
   top.columns = cs;
 }
-abstract production sqliteConsColumnList
+abstract production sqliteConsColumn
 top::SqliteColumnList ::= c::SqliteColumn cs::SqliteColumnList
 {
   top.columns = cons(c, cs.columns);
 }
-abstract production sqliteNilColumnList
+abstract production sqliteNilColumn
 top::SqliteColumnList ::=
 {
   top.columns = nil();

@@ -12,6 +12,14 @@ int main(void)
                     gender     VARCHAR )
   } as db;
 
+  on db query {
+    SELECT * FROM person
+  } as all_people;
+
+  foreach (person : all_people) {
+    printf("%d %s %s\n", person.person_id, person.first_name, person.last_name);
+  }
+
   int limit = 18;
   const char except_surname[] = "Adams";
 
@@ -21,10 +29,10 @@ int main(void)
                       ON person.person_id = details.person_id
     WHERE    age > ${limit} AND surname <> ${except_surname}
     ORDER BY surname DESC
-  } as people;
+  } as selected_people;
 
-  foreach (person : people) {
-    printf("%d %s %s\n", person.age, person.gender, person.surname);
+  foreach (person : selected_people) {
+    printf("%s %d %s\n", person.surname, person.age, person.gender);
   }
 
   on db exit;

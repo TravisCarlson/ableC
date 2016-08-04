@@ -31,17 +31,10 @@ top::Expr ::= db::Expr
 abstract production sqliteQueryDb
 top::Stmt ::= db::Expr query::SqliteQuery queryName::Name
 {
-  local tableErrors :: [Message] =
-    case db.typerep of
-      abs:sqliteDbType(_, tables) -> checkTablesExist(query.usedTables, tables)
-    | errorType() -> []
-    | _ -> [err(db.location, "expected _sqlite_db type")]
-    end;
-
   local dbTables :: [SqliteTable] =
     case db.typerep of
       abs:sqliteDbType(_, dbTables) -> dbTables
-    | _                           -> []
+    | _                             -> []
     end;
 
   local selectedTables :: [SqliteTable] =
@@ -50,23 +43,27 @@ top::Stmt ::= db::Expr query::SqliteQuery queryName::Name
   local selectedTablesWithAliases :: [SqliteTable] =
     addAliasColumns(selectedTables, query.resultColumns);
 
+  local tableErrors :: [Message] =
+    case db.typerep of
+      abs:sqliteDbType(_, _) ->
+        checkTablesExist(query.usedTables, selectedTablesWithAliases)
+    | errorType()            -> []
+    | _                      -> [err(db.location, "expected _sqlite_db type")]
+    end;
+
   local columnErrors :: [Message] =
     case db.typerep of
-      abs:sqliteDbType(_, dbTables) ->
+      abs:sqliteDbType(_, _) ->
         checkColumnsExist(query.usedColumns, selectedTablesWithAliases)
-    | errorType() -> []
-    | _ -> [err(db.location, "expected _sqlite_db type")]
+    | errorType()            -> []
+    | _                      -> [err(db.location, "expected _sqlite_db type")]
     end;
 
   local localErrors :: [Message] =
     tableErrors ++ columnErrors;
 
---  local resultColumnsPair :: Pair<[SqliteColumn] [Message]> =
---    makeResultColumns(query.resultColumns, dbTables);
---  local resultColumns :: [SqliteColumn] = resultColumnsPair.fst;
---  local columnErrors :: [Message] = resultColumnsPair.snd;
   local resultColumns :: [SqliteColumn] =
-    makeResultColumns(query.resultColumns, dbTables);
+    makeResultColumns(query.resultColumns, selectedTables);
 
   {-- want to forward to:
     _sqlite_query ${queryName} = _new_sqlite_query();
