@@ -198,7 +198,7 @@ top::Stmt ::= row::Name query::Expr body::Stmt
     );
 
   -- for example: const unsigned char *name; int age;
-  local columnDecls :: StructItemList = getColumnDecls(columns);
+  local columnDecls :: StructItemList = makeColumnDecls(columns);
 
   -- struct { <column declarations> }
   local rowTypeExpr :: BaseTypeExpr =
@@ -218,46 +218,11 @@ top::Stmt ::= row::Name query::Expr body::Stmt
   -}
   local rowInit :: Initializer =
     objectInitializer(
-      foldInit([
-        init(
-          exprInitializer(
-            directCallExpr(
-              name("sqlite3_column_int", location=builtIn()),
-              foldExpr([
-                memberExpr(query, true, name("query", location=builtIn()), location=builtIn()),
-                mkIntConst(0, builtIn())
-              ]),
-              location=builtIn()
-            )
-          )
-        ),
-        init(
-          exprInitializer(
-            directCallExpr(
-              name("sqlite3_column_text", location=builtIn()),
-              foldExpr([
-                memberExpr(query, true, name("query", location=builtIn()), location=builtIn()),
-                mkIntConst(1, builtIn())
-              ]),
-              location=builtIn()
-            )
-          )
-        ),
-        init(
-          exprInitializer(
-            directCallExpr(
-              name("sqlite3_column_text", location=builtIn()),
-              foldExpr([
-                memberExpr(query, true, name("query", location=builtIn()), location=builtIn()),
-                mkIntConst(2, builtIn())
-              ]),
-              location=builtIn()
-            )
-          )
-        )
-      ])
+      makeRowInit(
+        columns,
+        memberExpr(query, true, name("query", location=builtIn()), location=builtIn())
+      )
     );
-
   -- struct { <column declarations> } ${row} = { <column initializations> } ;
   local rowDecl :: Stmt =
     declStmt(
@@ -301,20 +266,20 @@ top::Location ::=
   forwards to loc("Built In", 0, 0, 0, 0, 0, 0);
 }
 
-function getColumnDecls
+function makeColumnDecls
 StructItemList ::= columns::[SqliteColumn]
 {
   return
     if null(columns)
       then nilStructItem()
       else consStructItem(
-        getColumnDecl(head(columns)),
-        getColumnDecls(tail(columns))
+        makeColumnDecl(head(columns)),
+        makeColumnDecls(tail(columns))
       )
     ;
 }
 
-function getColumnDecl
+function makeColumnDecl
 StructItem ::= col::SqliteColumn
 {
   local attribute typeExpr :: BaseTypeExpr =
@@ -338,6 +303,48 @@ StructItem ::= col::SqliteColumn
           structField(col.columnName, mod, [])
         ])
       );
+}
+
+function makeRowInit
+InitList ::= columns::[SqliteColumn] query::Expr
+{
+  return makeRowInitHelper(columns, query, 0);
+}
+
+function makeRowInitHelper
+InitList ::= columns::[SqliteColumn] query::Expr colIndex::Integer
+{
+  return
+    if null(columns) then nilInit()
+    else
+      consInit(
+        makeColumnInit(head(columns), query, colIndex),
+        makeRowInitHelper(tail(columns), query, colIndex+1)
+      );
+}
+
+function makeColumnInit
+Init ::= col::SqliteColumn query::Expr colIndex::Integer
+{
+  local attribute f :: String =
+    case col.typ of
+      sqliteVarchar() -> "sqlite3_column_text"
+    | sqliteInteger() -> "sqlite3_column_int"
+    end;
+
+  return
+    init(
+      exprInitializer(
+        directCallExpr(
+          name(f, location=builtIn()),
+          foldExpr([
+            query,
+            mkIntConst(colIndex, builtIn())
+          ]),
+          location=builtIn()
+        )
+      )
+    );
 }
 
 function makeBinds
