@@ -548,6 +548,7 @@ concrete productions top::SqliteExpr_c
 | e1::SqliteExpr_c SqliteAnd_t e2::SqliteExpr_c
   {
     top.ast = abs:sqliteBinaryExpr(e1.ast, e2.ast);
+    top.unparse = e1.unparse ++ " AND " ++ e2.unparse;
   }
 | e1::SqliteExpr_c SqliteEquals_t e2::SqliteExpr_c
   {

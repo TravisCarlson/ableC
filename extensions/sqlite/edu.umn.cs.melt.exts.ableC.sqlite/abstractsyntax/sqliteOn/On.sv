@@ -110,15 +110,7 @@ top::Stmt ::= db::Expr query::SqliteQuery queryName::Name
       foldExpr([
         memberExpr(db, true, name("db", location=builtIn()), location=builtIn()),
         stringLiteral(quote(query.queryStr), location=builtIn()),
-        realConstant(
-          integerConstant(
-            toString(length(query.queryStr)+1),
-            false,
-            noIntSuffix(),
-            location=builtIn()
-          ),
-          location=builtIn()
-        ),
+        mkIntConst(length(query.queryStr)+1, builtIn()),
         unaryOpExpr(
           addressOfOp(location=builtIn()),
           memberExpr(
@@ -129,10 +121,7 @@ top::Stmt ::= db::Expr query::SqliteQuery queryName::Name
           ),
           location=builtIn()
         ),
-        realConstant(
-          integerConstant("0", false, noIntSuffix(), location=builtIn()),
-          location=builtIn()
-        )
+        mkIntConst(0, builtIn())
       ]),
       location=builtIn()
     );
@@ -236,9 +225,7 @@ top::Stmt ::= row::Name query::Expr body::Stmt
               name("sqlite3_column_int", location=builtIn()),
               foldExpr([
                 memberExpr(query, true, name("query", location=builtIn()), location=builtIn()),
-                realConstant(
-                  integerConstant("0", true, noIntSuffix(), location=builtIn()),
-                  location=builtIn())
+                mkIntConst(0, builtIn())
               ]),
               location=builtIn()
             )
@@ -250,9 +237,7 @@ top::Stmt ::= row::Name query::Expr body::Stmt
               name("sqlite3_column_text", location=builtIn()),
               foldExpr([
                 memberExpr(query, true, name("query", location=builtIn()), location=builtIn()),
-                realConstant(
-                  integerConstant("1", true, noIntSuffix(), location=builtIn()),
-                  location=builtIn())
+                mkIntConst(1, builtIn())
               ]),
               location=builtIn()
             )
@@ -264,9 +249,7 @@ top::Stmt ::= row::Name query::Expr body::Stmt
               name("sqlite3_column_text", location=builtIn()),
               foldExpr([
                 memberExpr(query, true, name("query", location=builtIn()), location=builtIn()),
-                realConstant(
-                  integerConstant("2", true, noIntSuffix(), location=builtIn()),
-                  location=builtIn())
+                mkIntConst(2, builtIn())
               ]),
               location=builtIn()
             )
@@ -360,6 +343,12 @@ StructItem ::= col::SqliteColumn
 function makeBinds
 Stmt ::= query::SqliteQuery queryName::Name
 {
+  return makeBindsHelper(query.exprParams, queryName, 1);
+}
+
+function makeBindsHelper
+Stmt ::= exprParams::[Expr] queryName::Name i::Integer
+{
   {-- want to forward to:
     // for each expression parameter:
       sqlite3_bind_int(${queryName}, i, <expr>);
@@ -367,12 +356,71 @@ Stmt ::= query::SqliteQuery queryName::Name
       sqlite3_bind_text(${queryName}, i, <expr>, -1, NULL);
   -}
   return
-    if   null(query.exprParams)
+    if   null(exprParams)
     then nullStmt()
-    else exprStmt(makeBind(head(query.exprParams), queryName, 1));
+    else seqStmt(
+           exprStmt(
+             makeBind(head(exprParams), queryName, i)
+           ),
+           makeBindsHelper(tail(exprParams), queryName, i+1)
+         );
 }
 
 function makeBind
+Expr ::= exprParam::Expr queryName::Name i::Integer
+{
+  return if isTextType(exprParam.typerep)
+         then makeBindText(exprParam, queryName, i)
+         else makeBindInt(exprParam, queryName, i);
+}
+
+function isTextType
+Boolean ::= t::Type
+{
+  return false;
+  -- FIXME: detecting type is a runtime error because inherited env attr not provided
+--  return
+--    case t of
+--      pointerType(_, builtinType(_, t2))     ->
+--        case t2 of
+--          signedType(charType())   -> true
+--        | unsignedType(charType()) -> true
+--        | _                        -> false
+--        end
+--    | arrayType(builtinType(_, t2), _, _, _) ->
+--        case t2 of
+--          signedType(charType())   -> true
+--        | unsignedType(charType()) -> true
+--        | _                        -> false
+--        end
+--    | _                                      ->
+--        false
+--    end;
+}
+
+function makeBindText
+Expr ::= exprParam::Expr queryName::Name i::Integer
+{
+  return
+    directCallExpr(
+      name("sqlite3_bind_text", location=builtIn()),
+      foldExpr([
+        memberExpr(
+          declRefExpr(queryName, location=builtIn()),
+          true,
+          name("query", location=builtIn()),
+          location=builtIn()
+        ),
+        mkIntConst(i, builtIn()),
+        exprParam,
+        mkIntConst(-1, builtIn()),
+        mkIntConst(0, builtIn())
+      ]),
+      location=builtIn()
+    );
+}
+
+function makeBindInt
 Expr ::= exprParam::Expr queryName::Name i::Integer
 {
   return
@@ -385,19 +433,8 @@ Expr ::= exprParam::Expr queryName::Name i::Integer
           name("query", location=builtIn()),
           location=builtIn()
         ),
-        realConstant(
-          integerConstant(toString(i), false, noIntSuffix(), location=builtIn()),
-          location=builtIn()
-        ),
+        mkIntConst(i, builtIn()),
         exprParam
---        realConstant(
---          integerConstant("-1", false, noIntSuffix(), location=builtIn()),
---          location=builtIn()
---        ),
---        realConstant(
---          integerConstant("0", false, noIntSuffix(), location=builtIn()),
---          location=builtIn()
---        )
       ]),
       location=builtIn()
     );
