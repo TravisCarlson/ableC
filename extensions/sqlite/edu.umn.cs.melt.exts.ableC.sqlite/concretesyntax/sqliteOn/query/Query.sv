@@ -40,6 +40,14 @@ terminal SqliteCurrentDate_t 'CURRENT_DATE' lexer classes {SqliteKeyword};
 terminal SqliteCurrentTimestamp_t 'CURRENT_TIMESTAMP' lexer classes {SqliteKeyword};
 terminal SqliteCast_t 'CAST' lexer classes {SqliteKeyword};
 terminal SqliteBetween_t 'BETWEEN' lexer classes {SqliteKeyword};
+terminal SqliteInsert_t 'INSERT' lexer classes {SqliteKeyword};
+terminal SqliteReplace_t 'REPLACE' lexer classes {SqliteKeyword};
+terminal SqliteRollback_t 'ROLLBACK' lexer classes {SqliteKeyword};
+terminal SqliteAbort_t 'ABORT' lexer classes {SqliteKeyword};
+terminal SqliteFail_t 'FAIL' lexer classes {SqliteKeyword};
+terminal SqliteIgnore_t 'IGNORE' lexer classes {SqliteKeyword};
+terminal SqliteInto_t 'INTO' lexer classes {SqliteKeyword};
+terminal SqliteDefault_t 'DEFAULT' lexer classes {SqliteKeyword};
 
 --terminal SqliteDecimalLiteral_t /(([0-9]+(\.[0-9]+)?)|(\.[0-9]+))(E[+-]?[0-9]+)?/;
 terminal SqliteDecimalLiteral_t /[0-9]+(\.[0-9]+)?/;
@@ -85,6 +93,10 @@ concrete productions top::SqliteQuery_c
 | s::SqliteSelectStmt_c
   {
     top.ast = abs:sqliteSelectQuery(s.ast, s.unparse);
+  }
+| i::SqliteInsertStmt_c
+  {
+    top.ast = abs:sqliteInsertQuery(i.ast, i.unparse);
   }
 
 -- TODO: implement the full Select statement, this only supports Simple Select
@@ -496,7 +508,7 @@ concrete productions top::SqliteValues_c
 | SqliteValues_t es::SqliteExprListList_c
   {
     top.ast = abs:sqliteValues(es.ast);
-    top.unparse = "VALUES " ++ es.unparse;
+    top.unparse = " VALUES " ++ es.unparse;
   }
 
 nonterminal SqliteExprListList_c with location, ast<abs:SqliteExprListList>, unparse;
@@ -987,5 +999,78 @@ concrete productions top::SqliteOffsetOrComma_c
 | ','
   {
     top.unparse = ", ";
+  }
+
+nonterminal SqliteInsertStmt_c with location, ast<abs:SqliteInsertStmt>, unparse;
+concrete productions top::SqliteInsertStmt_c
+| w::SqliteOptWith_c i::SqliteInsertOrReplace_c SqliteInto_t
+    s::SqliteSchemaTableName_c cs::SqliteOptColumnNameList_c
+    v::SqliteValuesOrSelectOrDefault_c
+  {
+    top.ast = abs:sqliteInsertStmt(w.ast, s.ast, cs.ast, v.ast);
+    top.unparse = w.unparse ++ i.unparse ++ " INTO " ++ s.unparse ++ cs.unparse ++ v.unparse;
+  }
+
+nonterminal SqliteInsertOrReplace_c with location, unparse;
+concrete productions top::SqliteInsertOrReplace_c
+| SqliteInsert_t
+  {
+    top.unparse = "INSERT";
+  }
+| SqliteReplace_t
+  {
+    top.unparse = "REPLACE";
+  }
+| SqliteInsert_t SqliteOr_t SqliteReplace_t
+  {
+    top.unparse = "INSERT OR REPLACE";
+  }
+| SqliteInsert_t SqliteOr_t SqliteRollback_t
+  {
+    top.unparse = "INSERT OR ROLLBACK";
+  }
+| SqliteInsert_t SqliteOr_t SqliteAbort_t
+  {
+    top.unparse = "INSERT OR ABORT";
+  }
+| SqliteInsert_t SqliteOr_t SqliteFail_t
+  {
+    top.unparse = "INSERT OR FAIL";
+  }
+| SqliteInsert_t SqliteOr_t SqliteIgnore_t
+  {
+    top.unparse = "INSERT OR IGNORE";
+  }
+
+nonterminal SqliteSchemaTableName_c with location, ast<abs:SqliteSchemaTableName>, unparse;
+concrete productions top::SqliteSchemaTableName_c
+| schemaName::cnc:Identifier_t '.' tableName::cnc:Identifier_t
+  {
+    top.ast = abs:sqliteSchemaTableName(abs:fromId(schemaName), abs:fromId(tableName));
+    top.unparse = schemaName.lexeme ++ "." ++ tableName.lexeme;
+  }
+| tableName::cnc:Identifier_t
+  {
+    top.ast = abs:sqliteTableName(abs:fromId(tableName));
+    top.unparse = tableName.lexeme;
+  }
+
+nonterminal SqliteValuesOrSelectOrDefault_c with location, ast<abs:SqliteValues>, unparse;
+concrete productions top::SqliteValuesOrSelectOrDefault_c
+-- This is ambiguous because SqliteSelectStmt_c can just be SqliteValues_c?
+--| v::SqliteValues_c
+--  {
+--    top.ast = v.ast;
+--    top.unparse = v.unparse;
+--  }
+| s::SqliteSelectStmt_c
+  {
+    top.ast = abs:sqliteSelectValues(s.ast);
+    top.unparse = s.unparse;
+  }
+| SqliteDefault_t SqliteValues_t
+  {
+    top.ast = abs:sqliteDefaultValues();
+    top.unparse = " DEFAULT VALUES";
   }
 

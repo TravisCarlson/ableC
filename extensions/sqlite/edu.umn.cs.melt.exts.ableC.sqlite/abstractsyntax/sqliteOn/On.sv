@@ -3,6 +3,7 @@ grammar edu:umn:cs:melt:exts:ableC:sqlite:abstractsyntax:sqliteOn;
 imports edu:umn:cs:melt:exts:ableC:sqlite:abstractsyntax as abs;
 imports edu:umn:cs:melt:ableC:concretesyntax as cnc;
 imports edu:umn:cs:melt:exts:ableC:sqlite:abstractsyntax:tables;
+imports edu:umn:cs:melt:exts:ableC:sqlite:abstractsyntax:foreach as foreach;
 imports edu:umn:cs:melt:ableC:abstractsyntax;
 imports edu:umn:cs:melt:ableC:abstractsyntax:construction;
 imports silver:langutil;
@@ -43,10 +44,18 @@ top::Stmt ::= db::Expr query::SqliteQuery queryName::Name
   local selectedTablesWithAliases :: [SqliteTable] =
     addAliasColumns(selectedTables, query.resultColumns);
 
-  local tableErrors :: [Message] =
+  local usedTableErrors :: [Message] =
     case db.typerep of
       abs:sqliteDbType(_, _) ->
         checkTablesExist(query.usedTables, selectedTablesWithAliases)
+    | errorType()            -> []
+    | _                      -> [err(db.location, "expected _sqlite_db type")]
+    end;
+
+  local modTableErrors :: [Message] =
+    case db.typerep of
+      abs:sqliteDbType(_, _) ->
+        checkTablesExist(query.modTables, dbTables)
     | errorType()            -> []
     | _                      -> [err(db.location, "expected _sqlite_db type")]
     end;
@@ -60,7 +69,7 @@ top::Stmt ::= db::Expr query::SqliteQuery queryName::Name
     end;
 
   local localErrors :: [Message] =
-    tableErrors ++ columnErrors;
+    usedTableErrors ++ modTableErrors ++ columnErrors;
 
   local resultColumns :: [SqliteColumn] =
     makeResultColumns(query.resultColumns, selectedTables);
@@ -123,11 +132,25 @@ top::Stmt ::= db::Expr query::SqliteQuery queryName::Name
       location=builtIn()
     );
 
+  local stepStmt :: Stmt =
+    foreach:sqliteForeach(
+      name("_insert_step", location=builtIn()),
+      declRefExpr(queryName, location=builtIn()),
+      nullStmt()
+    );
+
+  local stepStmtOrNull :: Stmt =
+    case query of
+      sqliteInsertQuery(_, _) -> stepStmt
+    | _                       -> nullStmt()
+    end;
+
   local fullStmt :: Stmt =
     foldStmt([
       queryDecl,
       exprStmt(mkErrorCheck(localErrors, callPrepare)),
-      makeBinds(query, queryName)
+      makeBinds(query, queryName),
+      stepStmtOrNull
     ]);
 
   forwards to fullStmt;

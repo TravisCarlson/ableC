@@ -3,6 +3,7 @@
 
 # include <sqlite3.h>
 # include <stdlib.h>
+# include <stdio.h>
 
 struct __attribute__((refId("edu:umn:cs:melt:exts:ableC:sqlite:_sqlite_db_s"))) _sqlite_db_s {
   sqlite3 *db;
@@ -35,7 +36,10 @@ _sqlite_query _new_sqlite_query()
 
 void finalize(_sqlite_query query)
 {
-  sqlite3_finalize(query->query);
+  int status = sqlite3_finalize(query->query);
+  if (status != SQLITE_OK) {
+    fprintf(stderr, "ERROR: sqlite3_finalize() returned %d\n", status);
+  }
   free(query);
 }
 

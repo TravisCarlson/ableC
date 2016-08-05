@@ -1,6 +1,20 @@
 #include <sqlite.xh>
 #include <stdio.h>
 
+struct person_and_details_t {
+  const char *first_name;
+  const char *last_name;
+  int age;
+  const char *gender;
+};
+
+struct person_and_details_t c_people[] = {
+  {"Aaron",    "Allen",  10, "M"},
+  {"Abigail",  "Adams",  20, "F"},
+  {"Benjamin", "Brown",  30, "M"},
+  {"Belle",    "Bailey", 40, "F"},
+};
+
 int main(void)
 {
   use "test.db" with {
@@ -12,6 +26,31 @@ int main(void)
                     gender     VARCHAR )
   } as db;
 
+//  on db query {
+//    DELETE from person
+//  } as clear_people;
+//  finalize(clear_people);
+//
+//  on db query {
+//    DELETE from details
+//  } as clear_details;
+//  finalize(clear_details);
+
+  int i;
+  for (i=0; i < sizeof(c_people) / sizeof(struct person_and_details_t); ++i) {
+    on db query {
+      INSERT INTO person VALUES
+        (${i}, ${c_people[i].first_name}, ${c_people[i].last_name})
+    } as populate_people;
+    finalize(populate_people);
+
+    on db query {
+      INSERT INTO details VALUES
+        (${i}, ${c_people[i].age}, ${c_people[i].gender})
+    } as populate_details;
+    finalize(populate_details);
+  }
+
   on db query {
     SELECT * FROM person
   } as all_people;
@@ -22,14 +61,14 @@ int main(void)
 
   finalize(all_people);
 
-  int limit = 18;
+  int min_age = 18;
   const char except_surname[] = "Adams";
 
   on db query {
     SELECT   age, gender, last_name AS surname
     FROM     person JOIN details
                       ON person.person_id = details.person_id
-    WHERE    age > ${limit} AND surname <> ${except_surname}
+    WHERE    age >= ${min_age} AND surname <> ${except_surname}
     ORDER BY surname DESC
   } as selected_people;
 

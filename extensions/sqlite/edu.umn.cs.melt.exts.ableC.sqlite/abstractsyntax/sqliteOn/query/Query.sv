@@ -8,14 +8,14 @@ imports edu:umn:cs:melt:ableC:abstractsyntax;
 imports edu:umn:cs:melt:ableC:abstractsyntax:construction;
 imports silver:langutil;
 
-nonterminal SqliteQuery with queryStr, usedTables, usedColumns, selectedTables, resultColumns, exprParams;
+nonterminal SqliteQuery with queryStr, usedTables, usedColumns, selectedTables, resultColumns, exprParams, modTables;
 synthesized attribute queryStr :: String;
 synthesized attribute usedTables :: [Name];
 synthesized attribute usedColumns :: [SqliteResultColumnName];
 synthesized attribute selectedTables :: [Name];
 synthesized attribute resultColumns :: [SqliteResultColumnName];
 synthesized attribute exprParams :: [Expr];
-
+synthesized attribute modTables :: [Name];
 abstract production sqliteSelectQuery
 top::SqliteQuery ::= s::SqliteSelectStmt queryStr::String
 {
@@ -25,6 +25,18 @@ top::SqliteQuery ::= s::SqliteSelectStmt queryStr::String
   top.selectedTables = s.selectedTables;
   top.resultColumns = s.resultColumns;
   top.exprParams = s.exprParams;
+  top.modTables = [];
+}
+abstract production sqliteInsertQuery
+top::SqliteQuery ::= i::SqliteInsertStmt queryStr::String
+{
+  top.queryStr = queryStr;
+  top.usedTables = i.usedTables;
+  top.usedColumns = i.usedColumns;
+  top.selectedTables = i.selectedTables;
+  top.resultColumns = [];
+  top.exprParams = i.exprParams;
+  top.modTables = [i.modTable];
 }
 
 nonterminal SqliteSelectStmt with usedTables, usedColumns, selectedTables, resultColumns, exprParams;
@@ -110,8 +122,8 @@ top::SqliteSelectCore ::= v::SqliteValues
 {
   top.usedTables = v.usedTables;
   top.usedColumns = v.usedColumns;
-  top.selectedTables = [];
-  top.resultColumns = [];
+  top.selectedTables = v.selectedTables;
+  top.resultColumns = v.resultColumns;
   top.exprParams = v.exprParams;
 }
 
@@ -378,13 +390,33 @@ top::SqliteHaving ::= e::SqliteExpr
   top.exprParams = e.exprParams;
 }
 
-nonterminal SqliteValues with usedTables, usedColumns, exprParams;
+nonterminal SqliteValues with usedTables, usedColumns, selectedTables, resultColumns, exprParams;
 abstract production sqliteValues
 top::SqliteValues ::= es::SqliteExprListList
 {
   top.usedTables = es.usedTables;
   top.usedColumns = es.usedColumns;
   top.exprParams = es.exprParams;
+  top.selectedTables = [];
+  top.resultColumns = [];
+}
+abstract production sqliteSelectValues
+top::SqliteValues ::= s::SqliteSelectStmt
+{
+  top.usedTables = s.usedTables;
+  top.usedColumns = s.usedColumns;
+  top.exprParams = s.exprParams;
+  top.selectedTables = s.selectedTables;
+  top.resultColumns = s.resultColumns;
+}
+abstract production sqliteDefaultValues
+top::SqliteValues ::=
+{
+  top.usedTables = [];
+  top.usedColumns = [];
+  top.exprParams = [];
+  top.selectedTables = [];
+  top.resultColumns = [];
 }
 
 nonterminal SqliteExprListList with usedTables, usedColumns, exprParams;
@@ -409,7 +441,7 @@ top::SqliteExprList ::= e::SqliteExpr es::SqliteExprList
 {
   top.usedTables = es.usedTables ++ e.usedTables;
   top.usedColumns = es.usedColumns ++ e.usedColumns;
-  top.exprParams = e.exprParams ++ es.exprParams;
+  top.exprParams = es.exprParams ++ e.exprParams;
 }
 abstract production sqliteNilExprList
 top::SqliteExprList ::=
@@ -587,6 +619,43 @@ top::SqliteOffsetExpr ::= e::SqliteExpr
   top.usedTables = e.usedTables;
   top.usedColumns = e.usedColumns;
   top.exprParams = e.exprParams;
+}
+
+nonterminal SqliteInsertStmt with usedTables, usedColumns, selectedTables, exprParams, modTable;
+synthesized attribute modTable :: Name;
+abstract production sqliteInsertStmt
+top::SqliteInsertStmt ::= mw::Maybe<SqliteWith> s::SqliteSchemaTableName
+                          mcs::Maybe<SqliteColumnNameList> v::SqliteValues
+{
+  local attribute wtables :: [Name] =
+    case mw of just(w) -> w.usedTables | nothing() -> [] end;
+  local attribute wcolumns :: [SqliteResultColumnName] =
+    case mw of just(w) -> w.usedColumns | nothing() -> [] end;
+  local attribute wExprParams :: [Expr] =
+    case mw of just(w) -> w.exprParams | nothing() -> [] end;
+  local attribute ccolumns :: [SqliteResultColumnName] =
+    case mcs of just(cs) -> cs.usedColumns | nothing() -> [] end;
+  top.usedTables = wtables ++ v.usedTables;
+  top.usedColumns = wcolumns ++ ccolumns ++ v.usedColumns;
+  top.selectedTables = v.selectedTables;
+  top.exprParams = wExprParams ++ v.exprParams;
+  top.modTable = s.tName;
+}
+
+nonterminal SqliteSchemaTableName with mSchemaName, tName;
+synthesized attribute mSchemaName :: Maybe<Name>;
+synthesized attribute tName :: Name;
+abstract production sqliteSchemaTableName
+top::SqliteSchemaTableName ::= schemaName::Name tableName::Name
+{
+  top.mSchemaName = just(schemaName);
+  top.tName = tableName;
+}
+abstract production sqliteTableName
+top::SqliteSchemaTableName ::= tableName::Name
+{
+  top.mSchemaName = nothing();
+  top.tName = tableName;
 }
 
 function checkTablesExist
