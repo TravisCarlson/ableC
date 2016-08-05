@@ -38,6 +38,19 @@ top::SqliteQuery ::= i::SqliteInsertStmt queryStr::String
   top.exprParams = i.exprParams;
   top.modTables = [i.modTable];
 }
+abstract production sqliteDeleteQuery
+top::SqliteQuery ::= d::SqliteDeleteStmt queryStr::String
+{
+  top.queryStr = queryStr;
+  top.usedTables = d.usedTables;
+  top.usedColumns = d.usedColumns;
+  top.selectedTables = d.selectedTables;
+  top.resultColumns = [];
+  top.exprParams = d.exprParams;
+  -- modified table will be in selectedTables because Where clause might
+  --   reference it
+  top.modTables = [];
+}
 
 nonterminal SqliteSelectStmt with usedTables, usedColumns, selectedTables, resultColumns, exprParams;
 abstract production sqliteSelectStmt
@@ -656,6 +669,29 @@ top::SqliteSchemaTableName ::= tableName::Name
 {
   top.mSchemaName = nothing();
   top.tName = tableName;
+}
+
+nonterminal SqliteDeleteStmt with usedTables, usedColumns, selectedTables, exprParams;
+abstract production sqliteDeleteStmt
+top::SqliteDeleteStmt ::= mw::Maybe<SqliteWith> s::SqliteSchemaTableName
+                          mwh::Maybe<SqliteWhere>
+{
+  local attribute wtables :: [Name] =
+    case mw of just(w) -> w.usedTables | nothing() -> [] end;
+  local attribute wcolumns :: [SqliteResultColumnName] =
+    case mw of just(w) -> w.usedColumns | nothing() -> [] end;
+  local attribute wExprParams :: [Expr] =
+    case mw of just(w) -> w.exprParams | nothing() -> [] end;
+  local attribute whtables :: [Name] =
+    case mwh of just(wh) -> wh.usedTables | nothing() -> [] end;
+  local attribute whcolumns :: [SqliteResultColumnName] =
+    case mwh of just(wh) -> wh.usedColumns | nothing() -> [] end;
+  local attribute whExprParams :: [Expr] =
+    case mwh of just(wh) -> wh.exprParams | nothing() -> [] end;
+  top.usedTables = wtables ++ [s.tName] ++ whtables;
+  top.usedColumns = wcolumns ++ whcolumns;
+  top.selectedTables = [s.tName];
+  top.exprParams = wExprParams ++ whExprParams;
 }
 
 function checkTablesExist

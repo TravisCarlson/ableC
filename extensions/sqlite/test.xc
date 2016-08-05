@@ -26,15 +26,15 @@ int main(void)
                     gender     VARCHAR )
   } as db;
 
-//  on db query {
-//    DELETE from person
-//  } as clear_people;
-//  finalize(clear_people);
-//
-//  on db query {
-//    DELETE from details
-//  } as clear_details;
-//  finalize(clear_details);
+  on db query {
+    DELETE FROM person
+  } as clear_people;
+  finalize(clear_people);
+
+  on db query {
+    DELETE FROM details
+  } as clear_details;
+  finalize(clear_details);
 
   int i;
   for (i=0; i < sizeof(c_people) / sizeof(struct person_and_details_t); ++i) {

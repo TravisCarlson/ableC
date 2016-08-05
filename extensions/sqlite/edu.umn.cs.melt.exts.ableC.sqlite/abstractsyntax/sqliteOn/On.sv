@@ -142,6 +142,7 @@ top::Stmt ::= db::Expr query::SqliteQuery queryName::Name
   local stepStmtOrNull :: Stmt =
     case query of
       sqliteInsertQuery(_, _) -> stepStmt
+    | sqliteDeleteQuery(_, _) -> stepStmt
     | _                       -> nullStmt()
     end;
 

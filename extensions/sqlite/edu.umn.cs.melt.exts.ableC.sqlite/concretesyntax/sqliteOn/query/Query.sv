@@ -48,6 +48,8 @@ terminal SqliteFail_t 'FAIL' lexer classes {SqliteKeyword};
 terminal SqliteIgnore_t 'IGNORE' lexer classes {SqliteKeyword};
 terminal SqliteInto_t 'INTO' lexer classes {SqliteKeyword};
 terminal SqliteDefault_t 'DEFAULT' lexer classes {SqliteKeyword};
+terminal SqliteDelete_t 'DELETE' lexer classes {SqliteKeyword};
+terminal SqliteIndexed_t 'INDEXED' lexer classes {SqliteKeyword};
 
 --terminal SqliteDecimalLiteral_t /(([0-9]+(\.[0-9]+)?)|(\.[0-9]+))(E[+-]?[0-9]+)?/;
 terminal SqliteDecimalLiteral_t /[0-9]+(\.[0-9]+)?/;
@@ -97,6 +99,10 @@ concrete productions top::SqliteQuery_c
 | i::SqliteInsertStmt_c
   {
     top.ast = abs:sqliteInsertQuery(i.ast, i.unparse);
+  }
+| d::SqliteDeleteStmt_c
+  {
+    top.ast = abs:sqliteDeleteQuery(d.ast, d.unparse);
   }
 
 -- TODO: implement the full Select statement, this only supports Simple Select
@@ -1072,5 +1078,37 @@ concrete productions top::SqliteValuesOrSelectOrDefault_c
   {
     top.ast = abs:sqliteDefaultValues();
     top.unparse = " DEFAULT VALUES";
+  }
+
+nonterminal SqliteDeleteStmt_c with location, ast<abs:SqliteDeleteStmt>, unparse;
+concrete productions top::SqliteDeleteStmt_c
+| w::SqliteOptWith_c SqliteDelete_t SqliteFrom_t t::SqliteQualifiedTableName_c
+    wh::SqliteOptWhere_c
+  {
+    top.ast = abs:sqliteDeleteStmt(w.ast, t.ast, wh.ast);
+    top.unparse = w.unparse ++ "DELETE FROM " ++ t.unparse ++ wh.unparse;
+  }
+
+nonterminal SqliteQualifiedTableName_c with location, ast<abs:SqliteSchemaTableName>, unparse;
+concrete productions top::SqliteQualifiedTableName_c
+| s::SqliteSchemaTableName_c i::SqliteOptIndexed_c
+  {
+    top.ast = s.ast;
+    top.unparse = s.unparse ++ i.unparse;
+  }
+
+nonterminal SqliteOptIndexed_c with location, unparse;
+concrete productions top::SqliteOptIndexed_c
+| SqliteIndexed_t SqliteBy_t indexName::cnc:Identifier_t
+  {
+    top.unparse = " INDEXED BY " ++ indexName.lexeme;
+  }
+| SqliteNot_t SqliteIndexed_t
+  {
+    top.unparse = " NOT INDEXED";
+  }
+|
+  {
+    top.unparse = "";
   }
 
