@@ -132,6 +132,20 @@ top::Stmt ::= db::Expr query::SqliteQuery queryName::Name
       location=builtIn()
     );
 
+  forwards to
+    foldStmt([
+      queryDecl,
+      exprStmt(mkErrorCheck(localErrors, callPrepare)),
+      makeBinds(query, queryName)
+    ]);
+}
+
+abstract production sqliteCommitDb
+top::Expr ::= db::Expr query::SqliteQuery
+{
+  local attribute queryName :: Name =
+    name("_commit_stmt", location=builtIn());
+
   local stepStmt :: Stmt =
     foreach:sqliteForeach(
       name("_insert_step", location=builtIn()),
@@ -139,22 +153,24 @@ top::Stmt ::= db::Expr query::SqliteQuery queryName::Name
       nullStmt()
     );
 
-  local stepStmtOrNull :: Stmt =
-    case query of
-      sqliteInsertQuery(_, _) -> stepStmt
-    | sqliteDeleteQuery(_, _) -> stepStmt
-    | _                       -> nullStmt()
-    end;
+  local callFinalize :: Expr =
+    directCallExpr(
+      name("finalize", location=builtIn()),
+      foldExpr([
+        declRefExpr(queryName, location=builtIn())
+      ]),
+      location=builtIn()
+    );
 
-  local fullStmt :: Stmt =
-    foldStmt([
-      queryDecl,
-      exprStmt(mkErrorCheck(localErrors, callPrepare)),
-      makeBinds(query, queryName),
-      stepStmtOrNull
-    ]);
-
-  forwards to fullStmt;
+  forwards to
+    stmtExpr(
+      foldStmt([
+        sqliteQueryDb(db, query, queryName),
+        stepStmt
+      ]),
+      callFinalize,
+      location=top.location
+    );
 }
 
 -- TODO: don't duplicate this

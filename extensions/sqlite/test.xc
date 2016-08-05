@@ -26,29 +26,20 @@ int main(void)
                     gender     VARCHAR )
   } as db;
 
-  on db query {
-    DELETE FROM person
-  } as clear_people;
-  finalize(clear_people);
-
-  on db query {
-    DELETE FROM details
-  } as clear_details;
-  finalize(clear_details);
+  on db commit { DELETE FROM person };
+  on db commit { DELETE FROM details };
 
   int i;
   for (i=0; i < sizeof(c_people) / sizeof(struct person_and_details_t); ++i) {
-    on db query {
+    on db commit {
       INSERT INTO person VALUES
         (${i}, ${c_people[i].first_name}, ${c_people[i].last_name})
-    } as populate_people;
-    finalize(populate_people);
+    };
 
-    on db query {
+    on db commit {
       INSERT INTO details VALUES
         (${i}, ${c_people[i].age}, ${c_people[i].gender})
-    } as populate_details;
-    finalize(populate_details);
+    };
   }
 
   on db query {
