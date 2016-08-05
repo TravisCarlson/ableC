@@ -734,6 +734,7 @@ Boolean ::= t::SqliteTable names::[Name]
     (t.tableName.name == head(names).name || containsTableName(t, tail(names)));
 }
 
+-- TODO: also check if columns are ambiguous
 function checkColumnsExist
 [Message] ::= usedColumns::[SqliteResultColumnName] tables::[SqliteTable]
 {

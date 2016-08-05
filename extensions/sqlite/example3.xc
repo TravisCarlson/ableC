@@ -1,18 +1,15 @@
 #include <sqlite.xh>
 #include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
+
+/* clear the database and repopulate it */
 
 struct person_and_details_t {
   const char *first_name;
   const char *last_name;
   int age;
   const char *gender;
-};
-
-struct person_and_details_t c_people[] = {
-  {"Aaron",    "Allen",  10, "M"},
-  {"Abigail",  "Adams",  20, "F"},
-  {"Benjamin", "Brown",  30, "M"},
-  {"Belle",    "Bailey", 40, "F"},
 };
 
 int main(void)
@@ -29,6 +26,14 @@ int main(void)
   on db commit { DELETE FROM person };
   on db commit { DELETE FROM details };
 
+  srand(time(NULL));
+  struct person_and_details_t c_people[] = {
+    {"Aaron",    "Allen",       (rand() % 10), "M"},
+    {"Abigail",  "Adams",  10 + (rand() % 10), "F"},
+    {"Benjamin", "Brown",  20 + (rand() % 10), "M"},
+    {"Belle",    "Bailey", 30 + (rand() % 10), "F"},
+  };
+
   int i;
   for (i=0; i < sizeof(c_people) / sizeof(struct person_and_details_t); ++i) {
     on db commit {
@@ -43,31 +48,17 @@ int main(void)
   }
 
   on db query {
-    SELECT * FROM person
-  } as all_people;
+    SELECT person.person_id AS person_id, first_name, last_name, age, gender
+    FROM   person JOIN details
+                    ON person.person_id = details.person_id
+  } as people;
 
-  foreach (person : all_people) {
-    printf("%d %s %s\n", person.person_id, person.first_name, person.last_name);
+  foreach (person : people) {
+    printf("%d %10s %10s %2d %s\n", person.person_id, person.first_name,
+        person.last_name, person.age, person.gender);
   }
 
-  finalize(all_people);
-
-  int min_age = 18;
-  const char except_surname[] = "Adams";
-
-  on db query {
-    SELECT   age, gender, last_name AS surname
-    FROM     person JOIN details
-                      ON person.person_id = details.person_id
-    WHERE    age >= ${min_age} AND surname <> ${except_surname}
-    ORDER BY surname DESC
-  } as selected_people;
-
-  foreach (person : selected_people) {
-    printf("%s %d %s\n", person.surname, person.age, person.gender);
-  }
-
-  finalize(selected_people);
+  finalize(people);
 
   on db exit;
 
