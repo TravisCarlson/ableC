@@ -20,7 +20,7 @@ int main(void)
 
   finalize(all_people);
 
-  on db exit;
+  db_exit(db);
 
   return 0;
 }

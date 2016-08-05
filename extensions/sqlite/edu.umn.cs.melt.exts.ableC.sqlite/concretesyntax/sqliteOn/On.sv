@@ -7,16 +7,9 @@ import edu:umn:cs:melt:exts:ableC:sqlite:concretesyntax:sqliteOn:query;
 
 marking terminal SqliteOn_t 'on' lexer classes {Ckeyword};
 
-terminal SqliteExit_t 'exit';
 terminal SqliteQuery_t 'query';
 terminal SqliteCommit_t 'commit';
 terminal SqliteAs_t 'as';
-
-concrete production sqliteExit_c
-top::cnc:PrimaryExpr_c ::= 'on' db::cnc:Expr_c 'exit'
-{
-  top.ast = abs:sqliteExit(db.ast, location=top.location);
-}
 
 concrete production sqliteQueryDb_c
 top::cnc:Stmt_c ::= 'on' db::cnc:Expr_c 'query' '{' query::SqliteQuery_c '}'

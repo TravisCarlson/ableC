@@ -8,27 +8,6 @@ imports edu:umn:cs:melt:ableC:abstractsyntax;
 imports edu:umn:cs:melt:ableC:abstractsyntax:construction;
 imports silver:langutil;
 
-abstract production sqliteExit
-top::Expr ::= db::Expr
-{
-  local localErrors :: [Message] =
-    case db.typerep of
-      abs:sqliteDbType(_, _) -> []
-    | errorType() -> []
-    | _ -> [err(db.location, "expected _sqlite_db type")]
-    end;
-
-  -- _delete_sqlite_db(${db});
-  local callClose :: Expr =
-    directCallExpr(
-      name("_delete_sqlite_db", location=top.location),
-      foldExpr([db]),
-      location=top.location
-    );
-
-    forwards to mkErrorCheck(localErrors, callClose);
-}
-
 abstract production sqliteQueryDb
 top::Stmt ::= db::Expr query::SqliteQuery queryName::Name
 {

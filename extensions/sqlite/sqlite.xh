@@ -22,7 +22,7 @@ _sqlite_db _new_sqlite_db(const char *filename)
   return db;
 }
 
-void _delete_sqlite_db(_sqlite_db db)
+void db_exit(_sqlite_db db)
 {
   sqlite3_close(db->db);
   free(db);

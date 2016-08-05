@@ -22,7 +22,7 @@ int main(void)
     printf("%d\n", person.person_id);
   }
 
-  on db exit;
+  db_exit(db);
 
   return 0;
 }

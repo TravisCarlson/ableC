@@ -31,7 +31,7 @@ int main(void)
                     ON person.person_id = details.person_id
   } as no_ages;
 
-  on db exit;
+  db_exit(db);
 
   return 0;
 }

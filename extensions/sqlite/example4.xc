@@ -14,7 +14,7 @@ int main(void)
     SELECT * FROM
   } as from_what;
 
-  on db exit;
+  db_exit(db);
 
   return 0;
 }

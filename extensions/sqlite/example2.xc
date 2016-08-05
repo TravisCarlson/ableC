@@ -30,7 +30,7 @@ int main(void)
 
   finalize(selected_people);
 
-  on db exit;
+  db_exit(db);
 
   return 0;
 }
