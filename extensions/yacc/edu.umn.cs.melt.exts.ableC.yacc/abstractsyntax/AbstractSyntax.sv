@@ -4,9 +4,9 @@ imports edu:umn:cs:melt:ableC:abstractsyntax as abs;
 imports edu:umn:cs:melt:ableC:concretesyntax as cnc;
 
 abstract production yaccGrammar
-top::abs:Stmt ::= YaccProductionList
+top::abs:Decl ::= YaccProductionList
 {
-  forwards to abs:nullStmt();
+  forwards to abs:decls(abs:nilDecl());
 }
 
 nonterminal YaccDeclList with decls;

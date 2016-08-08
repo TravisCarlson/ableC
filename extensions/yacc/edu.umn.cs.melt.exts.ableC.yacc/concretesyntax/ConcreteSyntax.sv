@@ -11,7 +11,7 @@ marking terminal YaccStart_t '%start' lexer classes {Ckeyword};
 marking terminal YaccLeft_t '%left' lexer classes {Ckeyword};
 
 concrete production yaccGrammar_c
-top::cnc:Stmt_c ::= YaccDeclList_c '%%' p::YaccProductionList_c '%%'
+top::cnc:Declaration_c ::= YaccDeclList_c '%%' p::YaccProductionList_c '%%'
 {
   top.ast = abs:yaccGrammar(p.ast);
 }
