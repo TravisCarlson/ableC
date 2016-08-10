@@ -2,19 +2,22 @@ grammar edu:umn:cs:melt:exts:ableC:yacc:abstractsyntax;
 
 imports edu:umn:cs:melt:ableC:abstractsyntax as abs;
 imports edu:umn:cs:melt:ableC:concretesyntax as cnc;
+import silver:langutil;
 
 abstract production yaccGrammar
-top::abs:Decl ::= YaccProductionList
+top::abs:Decl ::= ds::YaccDeclList ps::YaccProductionList
 {
-  forwards to abs:decls(abs:nilDecl());
+  forwards to
+    abs:decls(abs:nilDecl());
+--    abs:warnDecl([wrn(builtIn(), mkCopperSpec(ds, ps))]);
 }
 
 nonterminal YaccDeclList with decls;
 synthesized attribute decls :: [YaccDecl];
 abstract production yaccConsDecl
-top::YaccDeclList ::= p::YaccDecl ps::YaccDeclList
+top::YaccDeclList ::= d::YaccDecl ds::YaccDeclList
 {
-  top.decls = cons(p, ps.decls);
+  top.decls = cons(d, ds.decls);
 }
 abstract production yaccNilDecl
 top::YaccDeclList ::=
@@ -119,5 +122,31 @@ function fromId
 abs:Name ::= n::cnc:Identifier_t
 {
   return abs:name(n.lexeme, location=n.location);
+}
+
+abstract production builtIn
+top::Location ::=
+{
+  forwards to loc("Built In", 0, 0, 0, 0, 0, 0);
+}
+
+function mkCopperSpec
+String ::= ds::YaccDeclList ps::YaccProductionList
+{
+  return
+s"""
+<?xml version="1.0" encoding=UTF-8"?>
+<CopperSpec xmlns="http://melt.cs.umn.edu/copper/xmlns">
+  <Parser id="YaccGenGrammarParser" isUnitary="true">
+    <Grammars><GrammarRef id="YaccGenGrammar"/></Grammars>
+    <StartSymbol><NonterminalRef id="Root" grammar="YaccGenGrammar" /></StartSymbol>
+    <Package>ableC</Package>
+    <ClassName>YaccGenGrammarParser</ClassName>
+    <PostParseCode>
+      <Code><![CDATA[ System.out.println(root); ]]></Code>
+    </PostParseCode>
+  </Parser>
+</CopperSpec>
+""";
 }
 
